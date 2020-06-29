@@ -1,3 +1,18 @@
+struct Investments{R,G1,G2,G3}
+    thermalgens::ResourceInvestments{R,G1}
+    variablegens::ResourceInvestments{R,G2}
+    storages::ResourceInvestments{R,G3}
+end
+
+welfare(x::Investments) =
+    welfare(x.thermalgens) + welfare(x.variablegens) + welfare(x.storages)
+
+function setupinvestments!(s::Scenario)
+    # Wire up variables, investments, and constraints
+    # If s has a parent, use those builds
+    # If not, use s.investmentproblem.initialconditions
+end
+
 struct ResourceInvestments{R,G}
 
     # Parameters
@@ -6,11 +21,11 @@ struct ResourceInvestments{R,G}
     buildcost::Vector{Float64}      # one-time
     recurringcost::Vector{Float64}  # recurring
 
-    optionleadtime::Vector{Int}     # (investment periods, g)
+    optionleadtime::Vector{Int}     # investment periods, g
     buildleadtime::Vector{Int}
     capitalamortizationtime::Vector{Int}
 
-    maxnewoptions::Matrix{Int} # (investment periods, r x g)
+    maxnewoptions::Matrix{Int} # investment periods, r x g
     maxnewbuilds::Matrix{Int}
 
     # Variables
@@ -30,10 +45,61 @@ struct ResourceInvestments{R,G}
 
     investmentcosts::Matrix{ExpressionRef} # $, r x g
 
-    # Constraints:
-    # Min/max new options
-    # Min/max new builds
+    # Constraints
+    minnewoptions::Matrix{GreaterThanConstraintRef} # r x g
+    maxnewoptions::Matrix{LessThanConstraintRef}
+    minnewbuilds::Matrix{GreaterThanConstraintRef}
+    maxnewbuilds_optionlimit::Matrix{LessThanConstraintRef}
+    maxnewbuilds_physicallimit::Matrix{LessThanConstraintRef}
+
+    function ResourceInvestments{}(
+        optioncost, buildcost, recurringcost,
+        optionleadtime, buildleadtime, capitalamortizationtime,
+        maxnewoptions, maxnewbuilds)
+
+        R, G = size(maxnewoptions)
+
+        @assert length(optioncost) == G
+        @assert length(buildcost) == G
+        @assert length(recurringcost) == G
+
+        @assert length(optionleadtime) == G
+        @assert length(buildleadtime) == G
+        @assert length(capitalamortizationtime) == G
+
+        @assert size(maxnewbuilds) == (R,G)
+
+        new{R,G}(
+
+            optioncost, buildcost, recurringcost,
+            optionleadtime, buildleadtime, capitalamortizationtime,
+            maxnewoptions, maxnewbuilds,
+
+            Matrix{VariableRef}(undef,R,G),
+            Matrix{VariableRef}(undef,R,G),
+
+            Matrix{ExpressionRef}(undef,R,G),
+            Matrix{ExpressionRef}(undef,R,G),
+            Matrix{ExpressionRef}(undef,R,G),
+            Matrix{ExpressionRef}(undef,R,G),
+
+            Matrix{ExpressionRef}(undef,R,G),
+            Matrix{ExpressionRef}(undef,R,G),
+
+            Matrix{ExpressionRef}(undef,R,G),
+
+            Matrix{GreaterThanConstraintRef}(undef,R,G},
+            Matrix{LessThanConstraintRef}(undef,R,G},
+            Matrix{GreaterThanConstraintRef}(undef,R,G},
+            Matrix{LessThanConstraintRef}(undef,R,G},
+            Matrix{LessThanConstraintRef}(undef,R,G}
+
+        )
+
+    end
 
 end
 
 welfare(x::ResourceInvestments) = -sum(x.investmentcosts)
+
+

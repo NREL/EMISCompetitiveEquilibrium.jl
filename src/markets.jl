@@ -1,3 +1,18 @@
+struct Markets{R,T,P}
+   capacity::CapacityMarket
+   energy::EnergyMarket{R,T,P}
+   raisereserve::RaiseReserveMarket{R,T,P}
+   lowerreserve::LowerReserveMarket{R,T,P}
+end
+
+welfare(x::Markets) =
+    welfare(x.capacity) + welfare(x.energy) +
+    welfare(x.raisereserve) + welfare(x.lowerreserve)
+
+function setupmarkets!(s::Scenario)
+    # Wire up variables, expresssions, and constraints
+end
+
 struct CapacityMarket # Assumes a linear demand curve
 
     # Parameters
@@ -10,11 +25,11 @@ struct CapacityMarket # Assumes a linear demand curve
 
     capacitywelfare::ExpressionRef # Capacity market welfare
 
-    function CapacityMarket(p, q, m)
-        @assert p >= 0
-        @assert q >= 0
-        @assert m <= 0
-        new(p, q, m)
+    function CapacityMarket(targetprice, targetcapacity, demandslope)
+        @assert targetprice  >= 0
+        @assert targetcapacity >= 0
+        @assert demandslope <= 0
+        new(targetprice, targetcapacity, demandslope)
     end
 
 
@@ -36,11 +51,11 @@ struct EnergyMarket{R,T,P} # Assumes completely inelastic demand
     shortfallcost::Vector{ExpressionRef} # Shortfall costs ($, p)
 
     # Constraints
-    # Power balance
-    # Minimum shortfall
+    minshortfall::Array{<:ConstraintRef,3} # Minimum load shortfall (r x t x p)
+    marketclearning::Array{<:ConstraintRef,3} # Power balance (r x t x p)
 
     function EnergyMarket{}(demand::Matrix{Float64}, pricecap::Float64)
-        @assert all(demand .>= 0)
+        @assert all(x -> x >= 0, demand)
         @assert pricecap >= 0
         R, T = size(demand)
         new{R,T}(demand, pricecap)
@@ -64,11 +79,11 @@ struct RaiseReserveMarket{R,T,P} # Assumes completely inelastic demand
     shortfallcost::Vector{ExpressionRef} # Shortfall costs ($, p)
 
     # Constraints
-    # Reserve provision balance
-    # Minimum shortfall
+    minshortfall::Array{<:ConstraintRef,3} # Minimum reserve shortfall (r x t x p)
+    marketclearing::Array{<:ConstraintRef,3} # Reserve balance
 
-    function RaiseReserveMarket{}(demand::Matrix{Float64}, pricecap::Float64)
-        @assert all(demand .>= 0)
+    function RaiseReserveMarket{}(demand, pricecap)
+        @assert all(x -> x >= 0, demand)
         @assert pricecap >= 0
         R, T = size(demand)
         new{R,T}(demand, pricecap)
@@ -92,11 +107,11 @@ struct LowerReserveMarket{R,T,P} # Assumes completely inelastic demand
     shortfallcost::Vector{ExpressionRef} # Shortfall costs ($, p)
 
     # Constraints
-    # Reserve provision balance
-    # Minimum shortfall
+    minshortfall::Array{<:ConstraintRef,3} # Minimum reserve shortfall (r x t x p)
+    marketclearing::Array{<:ConstraintRef,3} # Reserve balance
 
-    function LowerReserveMarket{}(demand::Matrix{Float64}, pricecap::Float64)
-        @assert all(demand .>= 0)
+    function LowerReserveMarket{}(demand, pricecap)
+        @assert all(x -> x >= 0, demand)
         @assert pricecap >= 0
         R, T = size(demand)
         new{R,T}(demand, pricecap)

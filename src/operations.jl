@@ -1,3 +1,16 @@
+struct Operations{R,G1,G2,G3,T,P}
+    thermalgens::ThermalGeneratorOperations{R,G1,T,P}
+    variablegens::VariableGeneratorOperations{R,G2,T,P}
+    storages::StorageOperations{R,G3,T,P}
+end
+
+welfare(x::Operations) =
+    welfare(x.thermalgens) + welfare(x.variablegens) + welfare(x.storages)
+
+function setupoperations!(s::Scenario)
+    # Wire up variables, expressions, and constraints
+end
+
 struct ThermalGeneratorOperations{R,G,T,P}
 
     # Parameters
@@ -18,15 +31,31 @@ struct ThermalGeneratorOperations{R,G,T,P}
     lowerreserve::Array{VariableRef,4}   # Lower reserves provisioned
 
     # Expressions
+
     operatingcosts::Matrix{ExpressionRef} # Operating costs ($, r x g)
 
     # Constraints
-    # Min/max unit commitment
-    # Min/max startup/shutdown
-    # Unit commitment continuity
-    # Min up/down time
-    # Ramping constraints
-    # Energy-reserve interactions
+
+    minunitcommitment::Array{<:ConstraintRef,4} # (r x g x t x p)
+    maxunitcommitment::Array{<:ConstraintRef,4}
+    minunitstartups::Array{<:ConstraintRef,4}
+    maxunitstartups::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
+    minunitshutdowns::Array{<:ConstraintRef,4}  # (r x g x t x p)
+    maxunitshutdowns::Array{<:ConstraintRef,4}  # (r x g x t-1 x p)
+
+    unitcommitmentcontinuity::Array{<:ConstraintRef,4}  # (r x g x t-1 x p)
+    minunituptime::Array{<:ConstraintRef,4} # (r x g x t-? x p)
+    minunitdowntime::Array{<:ConstraintRef,4}
+
+    mingeneration::Array{<:ConstraintRef,4} # (r x g x t x p)
+    maxgeneration::Array{<:ConstraintRef,4}
+    minlowerreserve::Array{<:ConstraintRef,4}
+    maxlowerreserve::Array{<:ConstraintRef,4}
+    minraisereserve::Array{<:ConstraintRef,4}
+    maxraisereserve::Array{<:ConstraintRef,4}
+
+    maxrampdown::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
+    maxrampup::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
 
 end
 
@@ -52,7 +81,16 @@ struct VariableGeneratorsOperations{R,G,T,P}
     operatingcosts::Matrix{ExpressionRef} # Operating costs ($, r x g)
 
     # Constraints
-    # Energy-reserve interactions
+
+    mingeneration::Array{<:ConstraintRef,4} # (r x g x t x p)
+    maxgeneration::Array{<:ConstraintRef,4}
+    minlowerreserve::Array{<:ConstraintRef,4}
+    maxlowerreserve::Array{<:ConstraintRef,4}
+    minraisereserve::Array{<:ConstraintRef,4}
+    maxraisereserve::Array{<:ConstraintRef,4}
+
+    maxrampdown::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
+    maxrampup::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
 
 end
 
@@ -67,9 +105,24 @@ struct StoragesOperations{R,G,T,P}
     raisereserve::Array{VariableRef,4}   # Raise reserves provisioned
     lowerreserve::Array{VariableRef,4}   # Lower reserves provisioned
 
+    # Expressions
+
+    stateofcharge::Array{VariableRef,4}  # MWh, r x g x t x p
+
     # Constraints
-    # Energy-reserve interactions
-    # State-of-charge
+
+    mingeneration::Array{<:ConstraintRef,4} # (r x g x t x p)
+    maxgeneration::Array{<:ConstraintRef,4}
+    mingeneration_soc::Array{<:ConstraintRef,4}
+    maxgeneration_soc::Array{<:ConstraintRef,4}
+
+    minlowerreserve::Array{<:ConstraintRef,4}
+    maxlowerreserve::Array{<:ConstraintRef,4}
+    minraisereserve::Array{<:ConstraintRef,4}
+    maxraisereserve::Array{<:ConstraintRef,4}
+
+    maxrampdown::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
+    maxrampup::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
 
 end
 

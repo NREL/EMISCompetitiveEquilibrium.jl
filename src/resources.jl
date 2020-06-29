@@ -1,4 +1,4 @@
-struct ThermalGenerators
+struct ThermalGenerators{G1}
 
     name::Vector{String}             # g
     owner::Vector{String}            # g
@@ -12,17 +12,29 @@ struct ThermalGenerators
     maxrampdown::Vector{Float64}     # (MW/unit/hour, g)
     capacitycredit::Vector{Float64}  # (fraction, g)
 
+    function ThermalGenerators{}(args...)
+        G = length(first(args))
+        @assert all(a -> length(a) == G, args)
+        new{G}(args...)
+    end
+
 end
 
-struct VariableGenerators
+struct VariableGenerators{G2}
 
     name::Vector{String}    # g
     owner::Vector{String}   # g
     maxgen::Vector{Float64} # (MW/unit, g)
 
+    function VariableGenerators{}(args...)
+        G = length(first(args))
+        @assert all(a -> length(a) == G, args)
+        new{G}(args...)
+    end
+
 end
 
-struct Storages
+struct StoragesDevices{G3}
 
     name::Vector{String}  # g
     owner::Vector{String} # g
@@ -34,5 +46,11 @@ struct Storages
     chargeefficiency::Vector{Float64}    # (fraction, g)
     dischargeefficiency::Vector{Float64} # (fraction, g)
     carryoverefficieny::Vector{Float64}  # (fraction, g)
+
+    function StoragesDevices{}(args...)
+        G = length(first(args))
+        @assert all(a -> length(a) == G, args)
+        new{G}(args...)
+    end
 
 end
