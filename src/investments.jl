@@ -1,18 +1,3 @@
-struct Investments{R,G1,G2,G3}
-    thermalgens::ResourceInvestments{R,G1}
-    variablegens::ResourceInvestments{R,G2}
-    storages::ResourceInvestments{R,G3}
-end
-
-welfare(x::Investments) =
-    welfare(x.thermalgens) + welfare(x.variablegens) + welfare(x.storages)
-
-function setupinvestments!(s::Scenario)
-    # Wire up variables, investments, and constraints
-    # If s has a parent, use those builds
-    # If not, use s.investmentproblem.initialconditions
-end
-
 struct ResourceInvestments{R,G}
 
     # Parameters
@@ -100,6 +85,40 @@ struct ResourceInvestments{R,G}
 
 end
 
+function setup!(
+    invs::ResourceInvestments{R,G},
+    m::Model, existingunits::Matrix{Int})
+
+    # Variables
+    invs.newoptions .= @variable(m, [1:R, 1:G], Int)
+    invs.newbuilds .= @variable(m, [1:R, 1:G], Int)
+
+    # Expressions
+    # TODO
+
+    # Constraints
+    # TODO
+
+    return
+
+end
+
+function setup!(
+    invs::ResourceInvestments{R,G},
+    m::Model,
+    parentinvs::ResourceInvestments{R,G}
+)
+    error("Not yet implemented")
+end
+
 welfare(x::ResourceInvestments) = -sum(x.investmentcosts)
 
 
+struct Investments{R,G1,G2,G3}
+    thermalgens::ResourceInvestments{R,G1}
+    variablegens::ResourceInvestments{R,G2}
+    storages::ResourceInvestments{R,G3}
+end
+
+welfare(x::Investments) =
+    welfare(x.thermalgens) + welfare(x.variablegens) + welfare(x.storages)

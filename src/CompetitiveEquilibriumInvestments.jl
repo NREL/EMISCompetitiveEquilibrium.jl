@@ -16,8 +16,8 @@ const EqualToConstraintRef     = ConstraintRef{MOI.EqualTo{Float64}}
 
 include("resources.jl")
 include("investments.jl")
-include("operations.jl")
-include("markets.jl")
+include("operations/operations.jl")
+include("markets/markets.jl")
 include("Scenario.jl")
 include("InvestmentProblem.jl")
 
