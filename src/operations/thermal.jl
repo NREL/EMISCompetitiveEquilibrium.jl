@@ -50,6 +50,12 @@ function setup!(
     ops::ThermalGeneratorOperations{R,G}, m::Model,
     invs::ResourceInvestments{R,G})
     error("Not yet implemented")
+
+    ops.ucap .=
+        @expression(m, [r in regions],
+                    sum(invs.dispatchable[r,g] * _.maxgen[g] * _.capacitycredit[g]
+                        for g in gens))
+
 end
 
 welfare(x::ThermalGeneratorOperations) = -sum(x.operatingcosts)

@@ -10,6 +10,7 @@ struct ThermalGenerators{G1}
     mindowntime::Vector{Int}         # (hours, g)
     maxrampup::Vector{Float64}       # (MW/unit/hour, g)
     maxrampdown::Vector{Float64}     # (MW/unit/hour, g)
+
     capacitycredit::Vector{Float64}  # (fraction, g)
 
     function ThermalGenerators{}(args...)
@@ -24,6 +25,7 @@ struct VariableGenerators{G2}
 
     name::Vector{String}    # g
     owner::Vector{String}   # g
+
     maxgen::Vector{Float64} # (MW/unit, g)
 
     function VariableGenerators{}(args...)

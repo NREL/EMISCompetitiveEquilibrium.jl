@@ -42,36 +42,60 @@ end
 
 function setup!(s::Scenario)
 
-    m = s.investmentproblem.model
+    ip = s.investmentproblem
+    m = ip.model
+
     invs = s.investments
     ops = s.operations
     markets = s.markets
 
     # Investments
     if isnothing(s.parent)
-        initconds = s.investmentproblem.initialconditions
-        setup!(invs.thermalgens, m, initconds.thermal_existingunits)
-        setup!(invs.variablegens, m, initconds.variable_existingunits)
-        setup!(invs.storages, m, initconds.storage_existingunits)
+        setup!(invs.thermalgens,  m, ip.thermalstart)
+        setup!(invs.variablegens, m, ip.variablestart)
+        setup!(invs.storages,     m, ip.storagestart)
     else
         parentinvs = s.parent.investments
-        setup!(invs.thermalgens, m, parentinvs.thermalgens)
-        setup!(invs.variablegens, m, parentinvs.variablegens)
-        setup!(invs.storages, m, parentinvs.storages)
+        setup!(invs.thermalgens,  ip.thermaltechs,  m, parentinvs.thermalgens)
+        setup!(invs.variablegens, ip.variabletechs, m, parentinvs.variablegens)
+        setup!(invs.storages,     ip.storagetechs,  m, parentinvs.storages)
     end
 
     # Operations
-    setup!(ops.thermalgens, m, invs.thermalgens)
-    setup!(ops.variablegens, m, invs.variablegens)
-    setup!(ops.storages, m, invs.storages)
+    setup!(ops.thermalgens,  ip.thermaltechs,  m, invs.thermalgens)
+    setup!(ops.variablegens, ip.variabletechs, m, invs.variablegens)
+    setup!(ops.storages,     ip.storagetechs,  m, invs.storages)
 
     # Markets
-    setup!(markets.capacity, m, ops)
-    setup!(markets.energy, m, ops)
+    setup!(markets.capacity,     m, ops)
+    setup!(markets.energy,       m, ops)
     setup!(markets.raisereserve, m, ops)
     setup!(markets.lowerreserve, m, ops)
 
     return s
+
+end
+
+function maturing(
+    s::Scenario, r::Int, g::Int,
+    leadtime::Symbol, action::Symbol)
+
+    stepsback = 0
+    count = zero(getfield(s.invs, action))[r,g]
+    historical = s
+
+    while !isnothing(historical)
+
+        if getfield(historical.invs, leadtime)[r,g] == stepsback
+            count += getfield(historical.invs, action)[r,g]
+        end
+
+        historical = s.parent
+        stepsback += 1
+
+    end
+
+    return count
 
 end
 
