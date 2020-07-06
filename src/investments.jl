@@ -95,11 +95,14 @@ function setup!(
     m::Model,
     history::Union{InitialInvestments{R,G},ResourceInvestments{R,G}})
 
+    regions = 1:R
+    gens = 1:G
+
     # Variables
 
-    invs.newoptions .= @variable(m, [1:R, 1:G], Int)
-    invs.newbuilds .= @variable(m, [1:R, 1:G], Int)
-    invs.newretirements .= @variable(m, [1:R, 1:G], Int)
+    invs.newoptions .= @variable(m, [regions, gens], Int)
+    invs.newbuilds .= @variable(m, [regions, gens], Int)
+    invs.newretirements .= @variable(m, [regions, gens], Int)
 
     # Expressions
 
@@ -107,7 +110,7 @@ function setup!(
         @expression(m, [r in regions, g in gens],
                     maturing(s, r, g, :optionleadtime, :newoptions)
 
-    invs.buildsfinished .= _
+    invs.buildsfinished .=
         @expression(m, [r in regions, g in gens],
                     maturing(s, r, g, :buildleadtime, :newbuilds)
 

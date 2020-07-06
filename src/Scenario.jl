@@ -9,18 +9,34 @@ struct Scenario{R,G1,G2,G3,T,P}
     operations::Operations{R,G1,G2,G3,T,P}
     markets::Markets{R,T,P}
 
+    periodweights::Vector{Float64}
+
+    function Scenario{}(
+        probability, parentscenario, childscenarios, investmentproblem,
+        investments, operations, markets, periodweights)
+
+        @assert length(periodweights) == P
+        @assert 0 < probability <= 1
+
+        new{R,G1,G2,G3,T,P}(
+            probability, parentscenario, childscenarios, investmentproblem,
+            investments, operations, markets, periodweights)
+
+    end
+
 end
 
 function Scenario(
     parent::Scenario, p::Float64,
     investments::Investments{R,G1,G2,G3},
     operations::Operations{R,G1,G2,G3,T,P},
-    markets::Markets{R,T,P}
+    markets::Markets{R,T,P},
+    weights::Vector{Float64}
 ) where {R,G1,G2,G3,T,P}
 
     s = Scenario(
         p, parent, Scenario{R,G1,G2,G3,T,P}[], parent.investmentproblem,
-        investments, operations, markets)
+        investments, operations, markets, weights)
 
     return setup!(s)
 
@@ -30,11 +46,12 @@ function Scenario(
     invprob::InvestmentProblem,
     investments::Investments{R,G1,G2,G3},
     operations::Operations{R,G1,G2,G3,T,P},
-    markets::Markets{R,T,P}
+    markets::Markets{R,T,P},
+    weights::Vector{Float64}
 ) where {R,G1,G2,G3,T,P}
 
     s = Scenario(1.0, nothing, Scenario{R,G1,G2,G3,T,P}[], invprob,
-                 investments, operations, markets)
+                 investments, operations, markets, weights)
 
     return setup!(s)
 
@@ -48,6 +65,7 @@ function setup!(s::Scenario)
     invs = s.investments
     ops = s.operations
     markets = s.markets
+    weights = s.periodweights
 
     # Investments
     if isnothing(s.parent)
@@ -62,15 +80,15 @@ function setup!(s::Scenario)
     end
 
     # Operations
-    setup!(ops.thermalgens,  ip.thermaltechs,  m, invs.thermalgens)
-    setup!(ops.variablegens, ip.variabletechs, m, invs.variablegens)
-    setup!(ops.storages,     ip.storagetechs,  m, invs.storages)
+    setup!(ops.thermalgens,  ip.thermaltechs,  m, invs.thermalgens, weights)
+    setup!(ops.variablegens, ip.variabletechs, m, invs.variablegens, weights)
+    setup!(ops.storages,     ip.storagetechs,  m, invs.storages, weights)
 
     # Markets
-    setup!(markets.capacity,     m, ops)
-    setup!(markets.energy,       m, ops)
-    setup!(markets.raisereserve, m, ops)
-    setup!(markets.lowerreserve, m, ops)
+    setup!(markets.capacity,     m, ops, weights)
+    setup!(markets.energy,       m, ops, weights)
+    setup!(markets.raisereserve, m, ops, weights)
+    setup!(markets.lowerreserve, m, ops, weights)
 
     return s
 
