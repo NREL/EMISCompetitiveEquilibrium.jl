@@ -23,6 +23,8 @@ struct ThermalGeneratorOperations{R,G,T,P}
     variablecosts::Array{ExpressionRef,3} # ($, r x g x p)
     operatingcosts::Matrix{ExpressionRef} # ($, r x g)
 
+    ucap::Vector{ExpressionRef} # (MW, r)
+
     # Constraints
 
     minunitcommitment::Array{<:ConstraintRef,4} # (r x g x t x p)
@@ -71,11 +73,6 @@ function setup!(
 
     # Expressions
 
-    ops.ucap .=
-        @expression(m, [r in regions], sum(
-            invs.dispatchable[r,g] * gens.maxgen[g] * gens.capacitycredit[g]
-        for g in gens))
-
     ops.fixedcosts .=
         @expression(m, [r in regions, g in gens],
                     ops.fixedcost[g] * invs.dispatchable[r,g])
@@ -91,6 +88,11 @@ function setup!(
         @expression(m, [r in regions, g in gens],
                     ops.fixedcosts[r,g] +
                     sum(ops.variablecosts[r,g,p] * periodweights[p] for p in periods))
+
+    ops.ucap .=
+        @expression(m, [r in regions], sum(
+            invs.dispatchable[r,g] * gens.maxgen[g] * gens.capacitycredit[g]
+        for g in gens))
 
     # Constraints
 
