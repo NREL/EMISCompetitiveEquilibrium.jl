@@ -10,3 +10,6 @@ end
 
 welfare(x::Operations) =
     welfare(x.thermalgens) + welfare(x.variablegens) + welfare(x.storages)
+
+ucap(x::Operations) =
+    sum(x.thermalgens.ucap) + sum(x.variablegens.ucap) + sum(x.storages.ucap)

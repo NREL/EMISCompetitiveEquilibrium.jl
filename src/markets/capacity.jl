@@ -1,4 +1,4 @@
-struct CapacityMarket # Assumes a linear demand curve
+mutable struct CapacityMarket # Assumes a linear demand curve
 
     # Parameters
 
@@ -20,6 +20,15 @@ struct CapacityMarket # Assumes a linear demand curve
 end
 
 function setup!(market::CapacityMarket, m::Model, ops::Operations)
+
+    startprice =
+        market.targetprice - market.demandslope * market.targetcapacity
+
+    ucap_ = ucap(ops)
+
+    market.capacitywelfare =
+        @expression(m, startprice * ucap_ + 0.5 * market.demandslope * ucap_^2)
+
 end
 
 welfare(x::CapacityMarket) = x.capacitywelfare
