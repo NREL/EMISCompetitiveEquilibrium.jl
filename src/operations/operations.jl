@@ -1,11 +1,13 @@
 include("thermal.jl")
 include("variable.jl")
 include("storage.jl")
+include("transmission.jl")
 
 struct Operations{R,G1,G2,G3,T,P}
     thermalgens::ThermalGeneratorOperations{R,G1,T,P}
     variablegens::VariableGeneratorOperations{R,G2,T,P}
     storages::StorageOperations{R,G3,T,P}
+    transmission::TransmissionOperations{R,T,P}
 end
 
 welfare(x::Operations) =
