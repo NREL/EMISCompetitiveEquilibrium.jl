@@ -15,3 +15,18 @@ welfare(x::Operations) =
 
 ucap(x::Operations) =
     sum(x.thermalgens.ucap) + sum(x.variablegens.ucap) + sum(x.storages.ucap)
+
+energy(x::Operations, r::Int, t::Int, p::Int) =
+    x.thermalgens.totalenergy[r,t,p] +
+    x.variablegens.totalenergy[r,t,p] +
+    x.storages.totalenergy[r,t,p]
+
+raisereserve(x::Operations, r::Int, t::Int, p::Int) =
+    x.thermalgens.totalraisereserve[r,t,p] +
+    x.variablegens.totalraisereserve[r,t,p] +
+    x.storages.totalraisereserve[r,t,p]
+
+lowerreserve(x::Operations, r::Int, t::Int, p::Int) =
+    x.thermalgens.totallowerreserve[r,t,p] +
+    x.variablegens.totallowerreserve[r,t,p] +
+    x.storages.totallowerreserve[r,t,p]

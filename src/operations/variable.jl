@@ -18,6 +18,9 @@ struct VariableGeneratorsOperations{R,G,T,P}
     operatingcosts::Matrix{ExpressionRef} # Operating costs ($, r x g)
 
     ucap::Vector{ExpressionRef} # (MW, r)
+    totalenergy::Array{ExpressionRef,3} # MW, r x t x p
+    totalraisereserve::Array{ExpressionRef,3}
+    totallowerreserve::Array{ExpressionRef,3}
 
     # Constraints
 
@@ -70,6 +73,18 @@ function setup!(
 
     ops.ucap .=
         @expression(m, [r in regions], 0) # TODO
+
+    ops.totalenergy .=
+        @expression(m, [r in regions, t in timesteps, p in periods],
+                    sum(ops.energydispatch[r,g,t,p] for g in gens))
+
+    ops.totalraisereserve .=
+        @expression(m, [r in regions, t in timesteps, p in periods],
+                    sum(ops.raisereserve[r,g,t,p] for g in gens))
+
+    ops.totallowerreserve .=
+        @expression(m, [r in regions, t in timesteps, p in periods],
+                    sum(ops.lowerreserve[r,g,t,p] for g in gens))
 
     # Constraints
 

@@ -18,8 +18,12 @@ struct StoragesOperations{R,G,T,P}
     variablecosts::Array{VariableRef,3} # ($, r x g x p)
     operatingcosts::Matrix{ExpressionRef} # Operating costs ($, r x g)
 
-    ucap::Vector{ExpressionRef} # (MW, r)
     stateofcharge::Array{VariableRef,4}  # MWh, r x g x t x p
+
+    ucap::Vector{ExpressionRef} # (MW, r)
+    totalenergy::Array{ExpressionRef,3} # MW, r x t x p
+    totalraisereserve::Array{ExpressionRef,3}
+    totallowerreserve::Array{ExpressionRef,3}
 
     # Constraints
 
@@ -57,9 +61,9 @@ function setup!(
     # Variables
 
     ops.energydischarge .= @variable(m, [regions, gens, timesteps, periods])
-    ops.energycharge .= @variable(m, [regions, gens, timesteps, periods])
-    ops.raisereserve   .= @variable(m, [regions, gens, timesteps, periods])
-    ops.lowerreserve   .= @variable(m, [regions, gens, timesteps, periods])
+    ops.energycharge    .= @variable(m, [regions, gens, timesteps, periods])
+    ops.raisereserve    .= @variable(m, [regions, gens, timesteps, periods])
+    ops.lowerreserve    .= @variable(m, [regions, gens, timesteps, periods])
 
     # Expressions
 
@@ -83,10 +87,25 @@ function setup!(
             invs.dispatchable[r,g] * gens.maxgen[g] * gens.capacitycredit[g]
         for g in gens))
 
+
+    ops.totalenergy .=
+        @expression(m, [r in regions, t in timesteps, p in periods],
+                    sum(ops.energydischarge[r,g,t,p] - ops.energycharge[r,g,t,p]
+                        for g in gens))
+
+    ops.totalraisereserve .=
+        @expression(m, [r in regions, t in timesteps, p in periods],
+                    sum(ops.raisereserve[r,g,t,p] for g in gens))
+
+    ops.totallowerreserve .=
+        @expression(m, [r in regions, t in timesteps, p in periods],
+                    sum(ops.lowerreserve[r,g,t,p] for g in gens))
+
     ops.stateofcharge .=
-        @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
+        @expression(m, [r in regions, g in gens, t in timesteps, p in periods],
                     sum(ops.energycharge[r,g,i,p] - ops.energydischarge[r,g,i,p]
                         for i in 1:(t-1)))
+
     # Constraints
     # TODO: Pull storage reserve constributions from ZMCv2 formulation
 
