@@ -1,6 +1,6 @@
 struct TransmissionOperations{R,T,P}
 
-    labels::Vector{Tuple{Int,Int}}
+    labels::Vector{Pair{Int,Int}}
 
     # Parameters
 
@@ -10,6 +10,10 @@ struct TransmissionOperations{R,T,P}
 
     flows::Array{VariableRef,3} # (i x t x p)
 
+    # Expressions
+
+    exports::Array{ExpressionRef,3} # (r x t x p)
+
     # Constraints
 
     maxflow_forward::Array{<:ConstraintRef,3} # (i x t x p)
@@ -17,25 +21,44 @@ struct TransmissionOperations{R,T,P}
 
 end
 
-function flow(tx::TransmissionOperations, from::Int, to::Int)
-
-    # TODO: Find to, from regions in tx.labels if they exist
-    # Negate to reserve flow direction if needed
-    # If regions not in labels, return zero-expression
-
-    # Alternatively, could define net import function that tracks
-    # net power transfer into a given node number (seems more useful?)
-
-end
-
 function setup!(
     tx::TransmissionOperations{R,T,P}
     m::Model, periodweights::Vector{Float64})
 
+    interfaces = 1:length(tx.labels)
+    regions = 1:R
+    timesteps = 1:T
+    periods = 1:P
+
     # Variables
+
+    tx.flows .=
+        @variable(m, [i in interfaces, t in timesteps, p in periods])
 
     # Expressions
 
+    tx.exports .=
+        @expression(m, [r in regions, t in timesteps, p in periods],
+                    sum(flowout(r, l, tx.flows[i,t,p])
+                        for (i, l) in enumerate(tx.labels)))
+
     # Constraints
 
+    tx.maxflow_forward .=
+        @constraint(m, [i in interfaces, t in timesteps, p in periods],
+                    tx.flows[i] <= tx.limits[i,t,p])
+
+    tx.maxflow_back .=
+        @constraint(m, [i in interfaces, t in timesteps, p in periods],
+                    -tx.limits[i] <= tx.flows[i,t,p])
+
 end
+
+flowout(r::Int, label::Pair{Int,Int}, x) =
+    if r == first(label)
+        x
+    elseif r == second(label)
+        -x
+    else
+        zero(x)
+    end
