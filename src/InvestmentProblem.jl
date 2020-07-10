@@ -7,13 +7,8 @@ mutable struct InvestmentProblem{R,G1,G2,G3,T,P}
 
     model::Model
 
-    thermaltechs::ThermalGenerators{G1}
-    variabletechs::VariableGenerators{G2}
-    storagetechs::StorageDevices{G3}
-
-    thermalstart::InitialInvestments{R,G1}
-    variablestart::InitialInvestments{R,G2}
-    storagestart::InitialInvestments{R,G3}
+    technologies::Technologies{G1,G2,G3}
+    initialconditions::InitialConditions{R,G1,G2,G3}
 
     discountrate::Float64
 
@@ -21,25 +16,16 @@ mutable struct InvestmentProblem{R,G1,G2,G3,T,P}
 
     InvestmentProblem{T,P}(
         model::Model,
-        thermaltechs::ThermalGenerators{G1},
-        variabletechs::VariableGenerators{G2},
-        storagetechs::StorageDevices{G3},
-        thermalstart::InitialInvestments{R,G1},
-        variablestart::InitialInvestments{R,G2},
-        storagestart::InitialInvestments{R,G3},
+        techs::Technologies{G1,G2,G3},
+        initconds::InitialConditions{R,G1,G2,G3},
         discountrate::Float64
-    ) = new{R,G1,G2,G3,T,P}(
-        model, thermaltechs, variabletechs, storagetechs,
-        initialconditions, discountrate)
+    ) = new{R,G1,G2,G3,T,P}(model, techs, initconds, discountrate)
+
 end
 
 function InvestmentProblem(
-    thermaltechs::ThermalGenerators{G1},
-    variabletechs::VariableGenerators{G2},
-    storagetechs::StorageDevices{G3},
-    thermalstart::InitialInvestments{R,G1},
-    variablestart::InitialInvestments{R,G2},
-    storagestart::InitialInvestments{R,G3},
+    techs::Technologies{G1,G2,G3},
+    initconds::InitialConditions{R,G1,G2,G3},
     discountrate::Float64,
     investments::Investments{R,G1,G2,G3}
     operations::Operations{R,G1,G2,G3,T,P}
@@ -47,8 +33,7 @@ function InvestmentProblem(
 ) where {R,G1,G2,G3,T,P}
 
     invprob = InvestmentProblem{T,P}(
-        Model(), thermaltechs, variabletechs, storagetechs,
-        initialconds, discountrate)
+        Model(), techs, initialconds, discountrate)
 
     root = Scenario(invprob, investments, operations, markets)
     invprob.rootscenario = root

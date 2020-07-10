@@ -1,6 +1,17 @@
 struct InitialInvestments{R,G}
     options::Matrix{Int} # Existing (buildable) options (r x g)
     builds::Matrix{Int}  # Existing (dispatchable) units
+
+    function InitialInvestments{}(options::Matrix, builds::Matrix)
+        R, G = size(options)
+        @assert (R, G) == size(builds)
+        new{R,G}(options, builds)
+end
+
+struct InitialConditions{R,G1,G2,G3}
+    thermalgens::InitialInvestments{R,G1}
+    variablegens::InitialInvestments{R,G2}
+    storages::InitialInvestments{R,G3}
 end
 
 struct ResourceInvestments{R,G}
@@ -43,8 +54,7 @@ struct ResourceInvestments{R,G}
     maxnewbuilds_physicallimit::Matrix{LessThanConstraintRef}
 
     function ResourceInvestments{}(
-        optioncost, buildcost, recurringcost,
-        optionleadtime, buildleadtime, capitalamortizationtime,
+        optioncost, buildcost, optionleadtime, buildleadtime,
         maxnewoptions, maxnewbuilds)
 
         R, G = size(maxnewoptions)
