@@ -36,7 +36,7 @@ struct VariableGenerators{G2}
 
 end
 
-struct StoragesDevices{G3}
+struct StorageDevices{G3}
 
     name::Vector{String}  # g
     owner::Vector{String} # g
@@ -49,7 +49,7 @@ struct StoragesDevices{G3}
     dischargeefficiency::Vector{Float64} # (fraction, g)
     carryoverefficieny::Vector{Float64}  # (fraction, g)
 
-    function StoragesDevices{}(args...)
+    function StorageDevices{}(args...)
         G = length(first(args))
         @assert all(a -> length(a) == G, args)
         new{G}(args...)

@@ -3,7 +3,7 @@
 # T: number of operations timesteps per period
 # P: number of operations periods
 
-mutable struct InvestmentProblem{R,G1,G2,G3,T,P}
+mutable struct InvestmentProblem{R,G1,G2,G3,T,P} <: AbstractProblem{R,G1,G2,G3,T,P}
 
     model::Model
 
@@ -19,7 +19,8 @@ mutable struct InvestmentProblem{R,G1,G2,G3,T,P}
         techs::Technologies{G1,G2,G3},
         initconds::InitialConditions{R,G1,G2,G3},
         discountrate::Float64
-    ) = new{R,G1,G2,G3,T,P}(model, techs, initconds, discountrate)
+    ) where {R,G1,G2,G3,T,P} =
+        new{R,G1,G2,G3,T,P}(model, techs, initconds, discountrate)
 
 end
 
@@ -27,8 +28,8 @@ function InvestmentProblem(
     techs::Technologies{G1,G2,G3},
     initconds::InitialConditions{R,G1,G2,G3},
     discountrate::Float64,
-    investments::Investments{R,G1,G2,G3}
-    operations::Operations{R,G1,G2,G3,T,P}
+    investments::Investments{R,G1,G2,G3},
+    operations::Operations{R,G1,G2,G3,T,P},
     markets::Markets{R,T,P}
 ) where {R,G1,G2,G3,T,P}
 

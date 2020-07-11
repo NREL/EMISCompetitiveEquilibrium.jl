@@ -1,4 +1,4 @@
-struct StoragesOperations{R,G,T,P}
+struct StorageOperations{R,G,T,P}
 
     # Parameters
 
@@ -15,10 +15,10 @@ struct StoragesOperations{R,G,T,P}
     # Expressions
 
     fixedcosts::Matrix{ExpressionRef} # ($, r x g)
-    variablecosts::Array{VariableRef,3} # ($, r x g x p)
+    variablecosts::Array{ExpressionRef,3} # ($, r x g x p)
     operatingcosts::Matrix{ExpressionRef} # Operating costs ($, r x g)
 
-    stateofcharge::Array{VariableRef,4}  # MWh, r x g x t x p
+    stateofcharge::Array{ExpressionRef,4}  # MWh, r x g x t x p
 
     ucap::Vector{ExpressionRef} # (MW, r)
     totalenergy::Array{ExpressionRef,3} # MW, r x t x p
@@ -27,21 +27,58 @@ struct StoragesOperations{R,G,T,P}
 
     # Constraints
 
-    mindischarge::Array{<:ConstraintRef,4} # (r x g x t x p)
-    maxdischarge_power::Array{<:ConstraintRef,4}
-    maxdischarge_energy::Array{<:ConstraintRef,4}
+    mindischarge::Array{GreaterThanConstraintRef,4} # (r x g x t x p)
+    maxdischarge_power::Array{LessThanConstraintRef,4}
+    maxdischarge_energy::Array{LessThanConstraintRef,4}
 
-    mincharge::Array{<:ConstraintRef,4}
-    maxcharge_power::Array{<:ConstraintRef,4}
-    maxcharge_energy::Array{<:ConstraintRef,4}
+    mincharge::Array{GreaterThanConstraintRef,4}
+    maxcharge_power::Array{LessThanConstraintRef,4}
+    maxcharge_energy::Array{LessThanConstraintRef,4}
 
-    minlowerreserve::Array{<:ConstraintRef,4}
-    maxlowerreserve::Array{<:ConstraintRef,4}
-    minraisereserve::Array{<:ConstraintRef,4}
-    maxraisereserve::Array{<:ConstraintRef,4}
+    minenergy::Array{GreaterThanConstraintRef,4}   # (r x g x t-1 x p)
+    maxenergy::Array{LessThanConstraintRef,4}   # (r x g x t-1 x p)
 
-    maxrampdown::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
-    maxrampup::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
+    function StorageOperations{R,T,P}(
+        fixedcost::Vector{Float64}, variablecost::Vector{Float64}
+    ) where {R,T,P}
+
+        G = length(fixedcost)
+        @assert length(variablecost) == G
+
+        new{R,G,T,P}(
+
+            fixedcost, variablecost,
+
+            Array{VariableRef}(undef,R,G,T,P),
+            Array{VariableRef}(undef,R,G,T,P),
+            Array{VariableRef}(undef,R,G,T,P),
+            Array{VariableRef}(undef,R,G,T,P),
+
+            Array{ExpressionRef}(undef,R,G),
+            Array{ExpressionRef}(undef,R,G,P),
+            Array{ExpressionRef}(undef,R,G),
+
+            Array{ExpressionRef}(undef,R,G,T,P),
+
+            Array{ExpressionRef}(undef,R),
+            Array{ExpressionRef}(undef,R,T,P),
+            Array{ExpressionRef}(undef,R,T,P),
+            Array{ExpressionRef}(undef,R,T,P),
+
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+
+        )
+
+    end
 
 end
 
@@ -51,7 +88,7 @@ function setup!(
     m::Model,
     invs::ResourceInvestments{R,G},
     periodweights::Vector{Float64}
-) where {R,G}
+) where {R,G,T,P}
 
     regions = 1:R
     units = 1:G
@@ -75,12 +112,13 @@ function setup!(
         @expression(m, [r in regions, g in gens, p in periods],
                     sum(ops.variablecost[g] *
                         (ops.charge[r,g,t,p] + ops.discharge[r,g,t,p])
-                        for t in timesteps)
+                        for t in timesteps))
 
     ops.operatingcosts .=
         @expression(m, [r in regions, g in gens],
                     ops.fixedcosts[r,g] +
-                    sum(ops.variablecosts[r,g,p] * periodweights[p] for p in periods))
+                    sum(ops.variablecosts[r,g,p] * periodweights[p]
+                        for p in periods))
 
     ops.ucap .=
         @expression(m, [r in regions], sum(

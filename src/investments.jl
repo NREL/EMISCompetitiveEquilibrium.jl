@@ -6,6 +6,8 @@ struct InitialInvestments{R,G}
         R, G = size(options)
         @assert (R, G) == size(builds)
         new{R,G}(options, builds)
+    end
+
 end
 
 struct InitialConditions{R,G1,G2,G3}
@@ -61,18 +63,17 @@ struct ResourceInvestments{R,G}
 
         @assert length(optioncost) == G
         @assert length(buildcost) == G
-        @assert length(recurringcost) == G
 
         @assert length(optionleadtime) == G
         @assert length(buildleadtime) == G
-        @assert length(capitalamortizationtime) == G
 
+        @assert size(maxnewoptions) == (R,G)
         @assert size(maxnewbuilds) == (R,G)
 
         new{R,G}(
 
-            optioncost, buildcost, recurringcost,
-            optionleadtime, buildleadtime, capitalamortizationtime,
+            optioncost, buildcost,
+            optionleadtime, buildleadtime,
             maxnewoptions, maxnewbuilds,
 
             Matrix{VariableRef}(undef,R,G),
@@ -88,11 +89,11 @@ struct ResourceInvestments{R,G}
 
             Matrix{ExpressionRef}(undef,R,G),
 
-            Matrix{GreaterThanConstraintRef}(undef,R,G},
-            Matrix{LessThanConstraintRef}(undef,R,G},
-            Matrix{GreaterThanConstraintRef}(undef,R,G},
-            Matrix{LessThanConstraintRef}(undef,R,G},
-            Matrix{LessThanConstraintRef}(undef,R,G}
+            Matrix{GreaterThanConstraintRef}(undef,R,G),
+            Matrix{LessThanConstraintRef}(undef,R,G),
+            Matrix{GreaterThanConstraintRef}(undef,R,G),
+            Matrix{LessThanConstraintRef}(undef,R,G),
+            Matrix{LessThanConstraintRef}(undef,R,G)
 
         )
 
@@ -103,7 +104,8 @@ end
 function setup!(
     invs::ResourceInvestments{R,G},
     m::Model,
-    history::Union{InitialInvestments{R,G},ResourceInvestments{R,G}})
+    history::Union{InitialInvestments{R,G},ResourceInvestments{R,G}}
+) where {R, G}
 
     regions = 1:R
     gens = 1:G
@@ -118,11 +120,11 @@ function setup!(
 
     invs.optionsvested .=
         @expression(m, [r in regions, g in gens],
-                    maturing(s, r, g, :optionleadtime, :newoptions)
+                    maturing(s, r, g, :optionleadtime, :newoptions))
 
     invs.buildsfinished .=
         @expression(m, [r in regions, g in gens],
-                    maturing(s, r, g, :buildleadtime, :newbuilds)
+                    maturing(s, r, g, :buildleadtime, :newbuilds))
 
     setup_unitstates!(invs, m, history)
 
@@ -162,7 +164,7 @@ function setup_unitstates!(
     invs::ResourceInvestments{R,G},
     m::Model,
     existing::InitialInvestments{R,G}
-)
+) where {R, G}
 
     invs.vesting .=
         @expression(m, [r in regions, g in gens],
@@ -194,7 +196,7 @@ function setup_unitstates!(
     invs::ResourceInvestments{R,G},
     m::Model,
     parentinvs::ResourceInvestments{R,G}
-)
+) where {R, G}
 
     invs.vesting .=
         @expression(m, [r in regions, g in gens],

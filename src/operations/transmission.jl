@@ -22,8 +22,9 @@ struct TransmissionOperations{R,T,P}
 end
 
 function setup!(
-    tx::TransmissionOperations{R,T,P}
-    m::Model, periodweights::Vector{Float64})
+    tx::TransmissionOperations{R,T,P},
+    m::Model, periodweights::Vector{Float64}
+) where {R,T,P}
 
     interfaces = 1:length(tx.labels)
     regions = 1:R

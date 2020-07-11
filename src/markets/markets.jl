@@ -1,7 +1,7 @@
 include("capacity.jl")
 include("energy.jl")
 include("raisereserve.jl")
-include("lowereserve.jl")
+include("lowerreserve.jl")
 
 struct Markets{R,T,P}
    capacity::CapacityMarket

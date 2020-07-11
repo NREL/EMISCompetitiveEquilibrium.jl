@@ -1,4 +1,4 @@
-struct VariableGeneratorsOperations{R,G,T,P}
+struct VariableGeneratorOperations{R,G,T,P}
 
     # Parameters
 
@@ -24,21 +24,55 @@ struct VariableGeneratorsOperations{R,G,T,P}
 
     # Constraints
 
-    mingeneration::Array{<:ConstraintRef,4} # (r x g x t x p)
-    maxgeneration::Array{<:ConstraintRef,4}
-    minlowerreserve::Array{<:ConstraintRef,4}
-    maxlowerreserve::Array{<:ConstraintRef,4}
-    minraisereserve::Array{<:ConstraintRef,4}
-    maxraisereserve::Array{<:ConstraintRef,4}
+    mingeneration::Array{GreaterThanConstraintRef,4} # (r x g x t x p)
+    maxgeneration::Array{LessThanConstraintRef,4}
+    minlowerreserve::Array{GreaterThanConstraintRef,4}
+    maxlowerreserve::Array{LessThanConstraintRef,4}
+    minraisereserve::Array{GreaterThanConstraintRef,4}
+    maxraisereserve::Array{LessThanConstraintRef,4}
 
-    maxrampdown::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
-    maxrampup::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
+    function VariableGeneratorOperations{R,T,P}(
+        fixedcost::Vector{Float64},
+        variablecost::Vector{Float64}
+    ) where {R,T,P}
+
+        G = length(fixedcost)
+        @assert length(variablecost) == G
+
+        new{R,G,T,P}(
+
+            fixedcost, variablecost,
+
+            Array{VariableRef}(undef,R,G,T,P),
+            Array{VariableRef}(undef,R,G,T,P),
+            Array{VariableRef}(undef,R,G,T,P),
+            Array{VariableRef}(undef,R,G,T,P),
+
+            Array{ExpressionRef}(undef,R,G),
+            Array{ExpressionRef}(undef,R,G,P),
+            Array{ExpressionRef}(undef,R,G),
+
+            Array{ExpressionRef}(undef,R),
+            Array{ExpressionRef}(undef,R,T,P),
+            Array{ExpressionRef}(undef,R,T,P),
+            Array{ExpressionRef}(undef,R,T,P),
+
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+
+        )
+
+    end
 
 end
 
 function setup!(
     ops::VariableGeneratorOperations{R,G,T,P},
-    gens::VariableGenerators{G},
+    units::VariableGenerators{G},
     m::Model,
     invs::ResourceInvestments{R,G},
     periodweights::Vector{Float64}
@@ -64,7 +98,7 @@ function setup!(
     ops.variablecosts .=
         @expression(m, [r in regions, g in gens, p in periods],
                     sum(ops.variablecost[g] * ops.energydispatch[r,g,t,p]
-                        for t in timesteps)
+                        for t in timesteps))
 
     ops.operatingcosts .=
         @expression(m, [r in regions, g in gens],
@@ -96,7 +130,7 @@ function setup!(
     ops.maxgeneration .=
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energydispatch[r,g,t,p] + ops.raisereserve[r,g,t,p] <=
-                    invs.dispatchable[r,g,t,p] * gens.maxgen[g])
+                    invs.dispatchable[r,g,t,p] * units.maxgen[g])
 
     ops.minlowerreserve .=
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
@@ -105,7 +139,7 @@ function setup!(
     ops.maxlowerreserve .= # TODO: Is this redundant?
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.lowerreserve[r,g,t,p] <=
-                    invs.dispatchable[r,g,t,p] * gens.maxgen[g])
+                    invs.dispatchable[r,g,t,p] * units.maxgen[g])
 
     ops.minraisereserve .=
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
@@ -114,8 +148,8 @@ function setup!(
     ops.maxraisereserve .= # TODO: Is this redundant?
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.raisereserve[r,g,t,p] <=
-                    invs.dispatchable[r,g,t,p] * gens.maxgen[g])
+                    invs.dispatchable[r,g,t,p] * units.maxgen[g])
 
 end
 
-welfare(x::VariableGenerationOperations) = -sum(x.operatingcosts)
+welfare(x::VariableGeneratorOperations) = -sum(x.operatingcosts)

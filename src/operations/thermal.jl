@@ -4,8 +4,8 @@ struct ThermalGeneratorOperations{R,G,T,P}
 
     fixedcost::Vector{Float64}    # $/unit/investment period, g
     variablecost::Vector{Float64} # $/MW/hour, g
-    startupcost::Float64          # $/startup/unit, g
-    shutdowncost::Float64         # $/shutdown/unit, g
+    startupcost::Vector{Float64}  # $/startup/unit, g
+    shutdowncost::Vector{Float64} # $/shutdown/unit, g
 
     # Variables
 
@@ -30,26 +30,84 @@ struct ThermalGeneratorOperations{R,G,T,P}
 
     # Constraints
 
-    minunitcommitment::Array{<:ConstraintRef,4} # (r x g x t x p)
-    maxunitcommitment::Array{<:ConstraintRef,4}
-    minunitstartups::Array{<:ConstraintRef,4}
-    maxunitstartups::Array{<:ConstraintRef,4}   # (r x g x t-1 x p)
-    minunitshutdowns::Array{<:ConstraintRef,4}  # (r x g x t x p)
-    maxunitshutdowns::Array{<:ConstraintRef,4}  # (r x g x t-1 x p)
+    minunitcommitment::Array{GreaterThanConstraintRef,4} # (r x g x t x p)
+    maxunitcommitment::Array{LessThanConstraintRef,4}
+    minunitstartups::Array{GreaterThanConstraintRef,4}
+    maxunitstartups::Array{LessThanConstraintRef,4}   # (r x g x t-1 x p)
+    minunitshutdowns::Array{GreaterThanConstraintRef,4}  # (r x g x t x p)
+    maxunitshutdowns::Array{LessThanConstraintRef,4}  # (r x g x t-1 x p)
 
-    unitcommitmentcontinuity::Array{<:ConstraintRef,4}  # (r x g x t-1 x p)
-    minunituptime::Array{<:ConstraintRef,4} # (r x g x t-? x p)
-    minunitdowntime::Array{<:ConstraintRef,4}
+    unitcommitmentcontinuity::Array{EqualToConstraintRef,4}  # (r x g x t-1 x p)
+    minunituptime::Array{LessThanConstraintRef,4} # (r x g x t-? x p)
+    minunitdowntime::Array{LessThanConstraintRef,4}
 
-    mingeneration::Array{<:ConstraintRef,4} # (r x g x t x p)
-    maxgeneration::Array{<:ConstraintRef,4}
-    minlowerreserve::Array{<:ConstraintRef,4}
-    maxlowerreserve::Array{<:ConstraintRef,4}
-    minraisereserve::Array{<:ConstraintRef,4}
-    maxraisereserve::Array{<:ConstraintRef,4}
+    mingeneration::Array{GreaterThanConstraintRef,4} # (r x g x t x p)
+    maxgeneration::Array{LessThanConstraintRef,4}
+    minlowerreserve::Array{GreaterThanConstraintRef,4}
+    maxlowerreserve::Array{LessThanConstraintRef,4}
+    minraisereserve::Array{GreaterThanConstraintRef,4}
+    maxraisereserve::Array{LessThanConstraintRef,4}
 
-    maxrampdown::Array{<:ConstraintRef,4} # (r x g x t-1 x p)
-    maxrampup::Array{<:ConstraintRef,4}
+    maxrampdown::Array{GreaterThanConstraintRef,4} # (r x g x t-1 x p)
+    maxrampup::Array{LessThanConstraintRef,4}
+
+    function ThermalGeneratorOperations{R,T,P}(
+        fixedcost::Vector{Float64},
+        variablecost::Vector{Float64},
+        startupcost::Vector{Float64},
+        shutdowncost::Vector{Float64}
+    ) where {R,T,P}
+
+        G = length(fixedcost)
+        @assert length(variablecost) == G
+        @assert length(startupcost) == G
+        @assert length(shutdowncost) == G
+
+        new{R,G,T,P}(
+
+            fixedcost, variablecost, startupcost, shutdowncost,
+
+            Array{VariableRef}(undef,R,G,T,P),
+            Array{VariableRef}(undef,R,G,T,P),
+            Array{VariableRef}(undef,R,G,T,P),
+
+            Array{VariableRef}(undef,R,G,T,P),
+            Array{VariableRef}(undef,R,G,T,P),
+            Array{VariableRef}(undef,R,G,T,P),
+
+            Array{ExpressionRef}(undef,R,G),
+            Array{ExpressionRef}(undef,R,G,P),
+            Array{ExpressionRef}(undef,R,G),
+
+            Array{ExpressionRef}(undef,R),
+            Array{ExpressionRef}(undef,R,T,P),
+            Array{ExpressionRef}(undef,R,T,P),
+            Array{ExpressionRef}(undef,R,T,P),
+
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T-1,P),
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T-1,P),
+
+            Array{EqualToConstraintRef}(undef,R,G,T-1,P),
+            Array{LessThanConstraintRef}(undef,R,G,T-i,P),
+            Array{LessThanConstraintRef}(undef,R,G,T-i,P),
+
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
+            Array{LessThanConstraintRef}(undef,R,G,T,P),
+
+            Array{GreaterThanConstraintRef}(undef,R,G,T-1,P),
+            Array{LessThanConstraintRef}(undef,R,G,T-1,P)
+
+        )
+
+    end
 
 end
 
@@ -57,7 +115,8 @@ function setup!(
     ops::ThermalGeneratorOperations{R,G,T,P},
     gens::ThermalGenerators{G},
     m::Model, invs::ResourceInvestments{R,G},
-    periodweights::Vector{Float64})
+    periodweights::Vector{Float64}
+) where {R,G,T,P}
 
     regions = 1:R
     gens = 1:G
@@ -85,7 +144,7 @@ function setup!(
                     sum(ops.variablecost[g] * ops.energydispatch[r,g,t,p] +
                         ops.startupcost[g] * ops.started[r,g,t,p] +
                         ops.shutdowncost[g] * ops.shutdown[r,g,t,p]
-                        for t in timesteps)
+                        for t in timesteps))
 
     ops.operatingcosts .=
         @expression(m, [r in regions, g in gens],

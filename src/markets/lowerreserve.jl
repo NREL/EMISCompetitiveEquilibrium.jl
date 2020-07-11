@@ -17,8 +17,8 @@ struct LowerReserveMarket{R,T,P} # Assumes completely inelastic demand
     function LowerReserveMarket{}(demand, pricecap)
         @assert all(x -> x >= 0, demand)
         @assert pricecap >= 0
-        R, T = size(demand)
-        new{R,T}(demand, pricecap)
+        R, T, P = size(demand)
+        new{R,T,P}(demand, pricecap)
     end
 
 end

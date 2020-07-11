@@ -1,9 +1,9 @@
-struct Scenario{R,G1,G2,G3,T,P}
+struct Scenario{R,G1,G2,G3,T,P,I<:AbstractProblem{R,G1,G2,G3,T,P}}
 
     probability::Float64
     parentscenario::Union{Scenario{R,G1,G2,G3,T,P},Nothing}
     childscenarios::Vector{Scenario{R,G1,G2,G3,T,P}}
-    investmentproblem::InvestmentProblem{R,G1,G2,G3,T,P}
+    investmentproblem::I
 
     investments::Investments{R,G1,G2,G3}
     operations::Operations{R,G1,G2,G3,T,P}
@@ -12,13 +12,20 @@ struct Scenario{R,G1,G2,G3,T,P}
     periodweights::Vector{Float64}
 
     function Scenario{}(
-        probability, parentscenario, childscenarios, investmentproblem,
-        investments, operations, markets, periodweights)
+        probability::Float64,
+        parentscenario::Scenario{R,G1,G2,G3,T,P,I},
+        childscenarios::Vector{Scenario{R,G1,G2,G3,T,P,I}},
+        investmentproblem::I,
+        investments::Investments{R,G1,G2,G3},
+        operations::Operations{R,G1,G2,G3,T,P},
+        markets::Markets{R,T,P},
+        periodweights::Vector{Float64}
+) where {R,G1,G2,G3,T,P,I<:AbstractProblem{R,G1,G2,G3,T,P}}
 
         @assert length(periodweights) == P
         @assert 0 < probability <= 1
 
-        new{R,G1,G2,G3,T,P}(
+        new{R,G1,G2,G3,T,P,I}(
             probability, parentscenario, childscenarios, investmentproblem,
             investments, operations, markets, periodweights)
 
@@ -43,12 +50,12 @@ function Scenario(
 end
 
 function Scenario(
-    invprob::InvestmentProblem,
+    invprob::I,
     investments::Investments{R,G1,G2,G3},
     operations::Operations{R,G1,G2,G3,T,P},
     markets::Markets{R,T,P},
     weights::Vector{Float64}
-) where {R,G1,G2,G3,T,P}
+) where {R,G1,G2,G3,T,P,I<:AbstractProblem{R,G1,G2,G3,T,P}}
 
     s = Scenario(1.0, nothing, Scenario{R,G1,G2,G3,T,P}[], invprob,
                  investments, operations, markets, weights)
