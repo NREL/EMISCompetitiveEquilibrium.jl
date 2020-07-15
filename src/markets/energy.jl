@@ -1,4 +1,4 @@
-struct EnergyMarket{R,T,P} # Assumes completely inelastic demand
+mutable struct EnergyMarket{R,T,P} # Assumes completely inelastic demand
 
     # Parameters
     demand::Array{Float64,3} # (MW, r x t x p)
@@ -11,10 +11,10 @@ struct EnergyMarket{R,T,P} # Assumes completely inelastic demand
     shortfallcost::Matrix{ExpressionRef} # Shortfall costs ($, r x p)
 
     # Constraints
-    minshortfall::Array{<:ConstraintRef,3} # Minimum load shortfall (r x t x p)
-    marketclearning::Array{<:ConstraintRef,3} # Power balance (r x t x p)
+    minshortfall::Array{GreaterThanConstraintRef,3} # Minimum load shortfall (r x t x p)
+    marketclearning::Array{EqualToConstraintRef,3} # Power balance (r x t x p)
 
-    function EnergyMarket{}(demand::Matrix{Float64}, pricecap::Float64)
+    function EnergyMarket{}(demand::Array{Float64,3}, pricecap::Float64)
         @assert all(x -> x >= 0, demand)
         @assert pricecap >= 0
         R, T, P = size(demand)
@@ -33,27 +33,27 @@ function setup!(
 
     # Variables
 
-    market.shortfall .=
+    market.shortfall =
         @variable(m, [r in regions, t in timesteps, p in periods])
 
     # Expressions
 
-    market.shortfallcost .=
+    market.shortfallcost =
         @expression(m, [r in regions, p in periods],
                     sum(market.shortfall[r,t,p] * market.pricecap
                         for t in timesteps))
 
-    market.totalshortfallcost .=
+    market.totalshortfallcost =
         @expression(m, [r in regions],
             sum(market.shortfallcost[r,p] * periodweights[p] for p in periods))
 
     # Constraints
 
-    market.minshortfall .=
+    market.minshortfall =
         @constraint(m, [r in regions, t in timesteps, p in periods],
                     market.shortfall[r,t,p] >= 0)
 
-    market.marketclearning .=
+    market.marketclearning =
         @constraint(m, [r in regions, t in timesteps, p in periods],
                     energy(ops, r, t, p) + market.shortfall[r,t,p] ==
                     market.demand[r,t,p] + ops.transmission.exports[r,t,p])

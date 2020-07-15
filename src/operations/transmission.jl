@@ -1,4 +1,4 @@
-struct TransmissionOperations{R,T,P}
+mutable struct TransmissionOperations{R,T,P}
 
     labels::Vector{Pair{Int,Int}}
 
@@ -16,8 +16,26 @@ struct TransmissionOperations{R,T,P}
 
     # Constraints
 
-    maxflow_forward::Array{<:ConstraintRef,3} # (i x t x p)
-    maxflow_back::Array{<:ConstraintRef,3}
+    maxflow_forward::Array{LessThanConstraintRef,3} # (i x t x p)
+    maxflow_back::Array{LessThanConstraintRef,3}
+
+    function TransmissionOperations{R,T,P}(
+        labels::Vector{Pair{Int,Int}},
+        limits::Vector{Float64}
+    ) where {R,T,P}
+
+        I = length(labels)
+        @assert length(limits) == I
+
+        @assert all(x -> 1 <= first(x) <= R, labels)
+        @assert all(x -> 1 <= last(x) <= R, labels)
+        @assert allunique(tuple.(minimum.(labels), maximum.(labels)))
+
+        @assert all(x -> x >= 0, limits)
+
+        new{R,T,P}(labels, limits)
+
+    end
 
 end
 
@@ -33,23 +51,23 @@ function setup!(
 
     # Variables
 
-    tx.flows .=
+    tx.flows =
         @variable(m, [i in interfaces, t in timesteps, p in periods])
 
     # Expressions
 
-    tx.exports .=
+    tx.exports =
         @expression(m, [r in regions, t in timesteps, p in periods],
                     sum(flowout(r, l, tx.flows[i,t,p])
                         for (i, l) in enumerate(tx.labels)))
 
     # Constraints
 
-    tx.maxflow_forward .=
+    tx.maxflow_forward =
         @constraint(m, [i in interfaces, t in timesteps, p in periods],
                     tx.flows[i] <= tx.limits[i,t,p])
 
-    tx.maxflow_back .=
+    tx.maxflow_back =
         @constraint(m, [i in interfaces, t in timesteps, p in periods],
                     -tx.limits[i] <= tx.flows[i,t,p])
 

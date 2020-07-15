@@ -16,7 +16,7 @@ struct InitialConditions{R,G1,G2,G3}
     storages::InitialInvestments{R,G3}
 end
 
-struct ResourceInvestments{R,G}
+mutable struct ResourceInvestments{R,G}
 
     # Parameters
 
@@ -35,6 +35,7 @@ struct ResourceInvestments{R,G}
 
     newoptions::Matrix{VariableRef} # New options purchased (r x g)
     newbuilds::Matrix{VariableRef}  # New options exercised / construction starts
+    newretirements::Matrix{VariableRef}  # New options exercised / construction starts
 
     # Expressions
 
@@ -70,32 +71,8 @@ struct ResourceInvestments{R,G}
         @assert size(maxnewoptions) == (R,G)
         @assert size(maxnewbuilds) == (R,G)
 
-        new{R,G}(
-
-            optioncost, buildcost,
-            optionleadtime, buildleadtime,
-            maxnewoptions, maxnewbuilds,
-
-            Matrix{VariableRef}(undef,R,G),
-            Matrix{VariableRef}(undef,R,G),
-
-            Matrix{ExpressionRef}(undef,R,G),
-            Matrix{ExpressionRef}(undef,R,G),
-            Matrix{ExpressionRef}(undef,R,G),
-            Matrix{ExpressionRef}(undef,R,G),
-            Matrix{ExpressionRef}(undef,R,G),
-
-            Matrix{ExpressionRef}(undef,R,G),
-
-            Matrix{ExpressionRef}(undef,R,G),
-
-            Matrix{GreaterThanConstraintRef}(undef,R,G),
-            Matrix{LessThanConstraintRef}(undef,R,G),
-            Matrix{GreaterThanConstraintRef}(undef,R,G),
-            Matrix{LessThanConstraintRef}(undef,R,G),
-            Matrix{LessThanConstraintRef}(undef,R,G)
-
-        )
+        new{R,G}(optioncost, buildcost, optionleadtime, buildleadtime,
+                 maxnewoptions, maxnewbuilds)
 
     end
 
@@ -110,25 +87,28 @@ function setup!(
     regions = 1:R
     gens = 1:G
 
+    s = _ # TODO: Decide how best to pass this in
+    # The root scenario can be treated differently than scenarios with parents?
+
     # Variables
 
-    invs.newoptions .= @variable(m, [regions, gens], Int)
-    invs.newbuilds .= @variable(m, [regions, gens], Int)
-    invs.newretirements .= @variable(m, [regions, gens], Int)
+    invs.newoptions = @variable(m, [regions, gens], Int)
+    invs.newbuilds = @variable(m, [regions, gens], Int)
+    invs.newretirements = @variable(m, [regions, gens], Int)
 
     # Expressions
 
-    invs.optionsvested .=
+    invs.optionsvested =
         @expression(m, [r in regions, g in gens],
                     maturing(s, r, g, :optionleadtime, :newoptions))
 
-    invs.buildsfinished .=
+    invs.buildsfinished =
         @expression(m, [r in regions, g in gens],
                     maturing(s, r, g, :buildleadtime, :newbuilds))
 
     setup_unitstates!(invs, m, history)
 
-    invs.investmentcosts .=
+    invs.investmentcosts =
         @expression(m, [r in regions, g in gens],
                     invs.optioncost[r,g] * invs.newoptions[r,g] +
                     invs.buildcost[r,g] * invs.newbuilds[r,g] +
@@ -136,23 +116,23 @@ function setup!(
 
     # Constraints
 
-    invs.minnewoptions .=
+    invs.minnewoptions =
         @constraint(m, [r in regions, g in gens],
                     invs.newoptions[r,g] >= 0)
 
-    invs.maxnewoptions .=
+    invs.maxnewoptions =
         @constraint(m, [r in regions, g in gens],
                     invs.newoptions[r,g] <= invs.newoptionslimit[r,g])
 
-    invs.minnewbuilds .=
+    invs.minnewbuilds =
         @constraint(m, [r in regions, g in gens],
                     invs.newbuilds[r,g] >= 0)
 
-    invs.maxnewbuilds_optionlimit .=
+    invs.maxnewbuilds_optionlimit =
         @constraint(m, [r in regions, g in gens],
                     invs.newbuilds[r,g] <= invs.buildable[r,g])
 
-    invs.maxnewbuilds_physicallimit .=
+    invs.maxnewbuilds_physicallimit =
         @constraint(m, [r in regions, g in gens],
                     invs.newbuilds[r,g] <= invs.newbuildslimit[r,g])
 
@@ -166,27 +146,27 @@ function setup_unitstates!(
     existing::InitialInvestments{R,G}
 ) where {R, G}
 
-    invs.vesting .=
+    invs.vesting =
         @expression(m, [r in regions, g in gens],
                     0 + invs.newoptions[r,g]
                     - invs.optionsvested[r,g])
 
-    invs.buildable .=
+    invs.buildable =
         @expression(m, [r in regions, g in gens],
                     existing.options[r,g] + invs.optionsvested[r,g]
                     - invs.newbuilds[r,g])
 
-    invs.building .=
+    invs.building =
         @expression(m, [r in regions, g in gens],
                     0 + invs.newbuilds[r,g]
                     - invs.buildsfinished[r,g])
 
-    invs.dispatchable .=
+    invs.dispatchable =
         @expression(m, [r in regions, g in gens],
                     existing.builds[r,g] + invs.buildsfinished[r,g]
                     - invs.retirements[r,g])
 
-    invs.retired .=
+    invs.retired =
         @expression(m, [r in regions, g in gens],
                     0 + invs.retirements[r,g])
 
@@ -198,27 +178,27 @@ function setup_unitstates!(
     parentinvs::ResourceInvestments{R,G}
 ) where {R, G}
 
-    invs.vesting .=
+    invs.vesting =
         @expression(m, [r in regions, g in gens],
                     parentinvs.vesting[r,g] + invs.newoptions[r,g]
                     - invs.optionsvested[r,g])
 
-    invs.buildable .=
+    invs.buildable =
         @expression(m, [r in regions, g in gens],
                     parentinvs.buildable[r,g] + invs.optionsvested[r,g]
                     - invs.newbuilds[r,g])
 
-    invs.building .=
+    invs.building =
         @expression(m, [r in regions, g in gens],
                     parentinvs.building + invs.newbuilds[r,g]
                     - invs.buildsfinished[r,g])
 
-    invs.dispatchable .=
+    invs.dispatchable =
         @expression(m, [r in regions, g in gens],
                     parentinvs.dispatchable[r,g] + invs.buildsfinished[r,g]
                     - invs.retirements[r,g])
 
-    invs.retired .=
+    invs.retired =
         @expression(m, [r in regions, g in gens],
                     parentinvs.retired[r,g] + invs.retirements[r,g])
 

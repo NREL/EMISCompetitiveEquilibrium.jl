@@ -45,38 +45,7 @@ struct StorageOperations{R,G,T,P}
         G = length(fixedcost)
         @assert length(variablecost) == G
 
-        new{R,G,T,P}(
-
-            fixedcost, variablecost,
-
-            Array{VariableRef}(undef,R,G,T,P),
-            Array{VariableRef}(undef,R,G,T,P),
-            Array{VariableRef}(undef,R,G,T,P),
-            Array{VariableRef}(undef,R,G,T,P),
-
-            Array{ExpressionRef}(undef,R,G),
-            Array{ExpressionRef}(undef,R,G,P),
-            Array{ExpressionRef}(undef,R,G),
-
-            Array{ExpressionRef}(undef,R,G,T,P),
-
-            Array{ExpressionRef}(undef,R),
-            Array{ExpressionRef}(undef,R,T,P),
-            Array{ExpressionRef}(undef,R,T,P),
-            Array{ExpressionRef}(undef,R,T,P),
-
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-
-        )
+        new{R,G,T,P}(fixedcost, variablecost)
 
     end
 
@@ -97,49 +66,49 @@ function setup!(
 
     # Variables
 
-    ops.energydischarge .= @variable(m, [regions, gens, timesteps, periods])
-    ops.energycharge    .= @variable(m, [regions, gens, timesteps, periods])
-    ops.raisereserve    .= @variable(m, [regions, gens, timesteps, periods])
-    ops.lowerreserve    .= @variable(m, [regions, gens, timesteps, periods])
+    ops.energydischarge = @variable(m, [regions, gens, timesteps, periods])
+    ops.energycharge    = @variable(m, [regions, gens, timesteps, periods])
+    ops.raisereserve    = @variable(m, [regions, gens, timesteps, periods])
+    ops.lowerreserve    = @variable(m, [regions, gens, timesteps, periods])
 
     # Expressions
 
-    ops.fixedcosts .=
+    ops.fixedcosts =
         @expression(m, [r in regions, g in gens],
                     ops.fixedcost[g] * invs.dispatchable[r,g])
 
-    ops.variablecosts .=
+    ops.variablecosts =
         @expression(m, [r in regions, g in gens, p in periods],
                     sum(ops.variablecost[g] *
                         (ops.charge[r,g,t,p] + ops.discharge[r,g,t,p])
                         for t in timesteps))
 
-    ops.operatingcosts .=
+    ops.operatingcosts =
         @expression(m, [r in regions, g in gens],
                     ops.fixedcosts[r,g] +
                     sum(ops.variablecosts[r,g,p] * periodweights[p]
                         for p in periods))
 
-    ops.ucap .=
+    ops.ucap =
         @expression(m, [r in regions], sum(
             invs.dispatchable[r,g] * gens.maxgen[g] * gens.capacitycredit[g]
         for g in gens))
 
 
-    ops.totalenergy .=
+    ops.totalenergy =
         @expression(m, [r in regions, t in timesteps, p in periods],
                     sum(ops.energydischarge[r,g,t,p] - ops.energycharge[r,g,t,p]
                         for g in gens))
 
-    ops.totalraisereserve .=
+    ops.totalraisereserve =
         @expression(m, [r in regions, t in timesteps, p in periods],
                     sum(ops.raisereserve[r,g,t,p] for g in gens))
 
-    ops.totallowerreserve .=
+    ops.totallowerreserve =
         @expression(m, [r in regions, t in timesteps, p in periods],
                     sum(ops.lowerreserve[r,g,t,p] for g in gens))
 
-    ops.stateofcharge .=
+    ops.stateofcharge =
         @expression(m, [r in regions, g in gens, t in timesteps, p in periods],
                     sum(ops.energycharge[r,g,i,p] - ops.energydischarge[r,g,i,p]
                         for i in 1:(t-1)))
@@ -147,39 +116,39 @@ function setup!(
     # Constraints
     # TODO: Pull storage reserve constributions from ZMCv2 formulation
 
-    ops.mindischarge .=
+    ops.mindischarge =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energydischarge[r,g,t,p] >= 0)
 
-    ops.maxdischarge_power .=
+    ops.maxdischarge_power =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energydischarge[r,g,t,p] <=
                     invs.dispatchable[r,g] * stors.maxgen[g])
 
-    ops.maxdischarge_energy .=
+    ops.maxdischarge_energy =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energydischarge[r,g,t,p] <= ops.stateofcharge[r,g,t,p])
 
-    ops.mincharge .=
+    ops.mincharge =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energycharge[r,g,t,p] >= 0)
 
-    ops.maxcharge_power .=
+    ops.maxcharge_power =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energycharge[r,g,t,p] <=
                     invs.dispatchable[r,g] * stors.maxgen[g])
 
-    ops.maxcharge_energy .=
+    ops.maxcharge_energy =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energycharge[r,g,t,p] <=
                     invs.dispatchable[r,g] * stors.maxenergy[g]
                      - ops.stateofcharge[r,g,t,p])
 
-    ops.minenergy .=
+    ops.minenergy =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.stateofcharge[r,g,t,p] >= 0)
 
-    ops.maxenergy .=
+    ops.maxenergy =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.stateofcharge[r,g,t,p] <=
                     invs.dispatchable[r,g] * stors.maxenergy[g])

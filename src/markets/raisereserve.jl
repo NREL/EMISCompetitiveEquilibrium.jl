@@ -11,8 +11,8 @@ struct RaiseReserveMarket{R,T,P} # Assumes completely inelastic demand
     shortfallcost::Vector{ExpressionRef} # Shortfall costs ($, p)
 
     # Constraints
-    minshortfall::Array{<:ConstraintRef,3} # Minimum reserve shortfall (r x t x p)
-    marketclearing::Array{<:ConstraintRef,3} # Reserve balance
+    minshortfall::Array{GreaterThanConstraintRef,3} # Minimum reserve shortfall (r x t x p)
+    marketclearing::Array{EqualToConstraintRef,3} # Reserve balance
 
     function RaiseReserveMarket{}(demand, pricecap)
         @assert all(x -> x >= 0, demand)
@@ -33,27 +33,27 @@ function setup!(
 
     # Variables
 
-    market.shortfall .=
+    market.shortfall =
         @variable(m, [r in regions, t in timesteps, p in periods])
 
     # Expressions
 
-    market.shortfallcost .=
+    market.shortfallcost =
         @expression(m, [r in regions, p in periods],
                     sum(market.shortfall[r,t,p] * market.pricecap
                         for t in timesteps))
 
-    market.totalshortfallcost .=
+    market.totalshortfallcost =
         @expression(m, [r in regions],
             sum(market.shortfallcost[r,p] * periodweights[p] for p in periods))
 
     # Constraints
 
-    market.minshortfall .=
+    market.minshortfall =
         @constraint(m, [r in regions, t in timesteps, p in periods],
                     market.shortfall[r,t,p] >= 0)
 
-    market.marketclearning .=
+    market.marketclearning =
         @constraint(m, [r in regions, t in timesteps, p in periods],
                     raisereserve(ops, r, t, p) + market.shortfall[r,t,p] ==
                     market.demand[r,t,p])

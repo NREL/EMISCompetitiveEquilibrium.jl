@@ -1,4 +1,4 @@
-struct ThermalGeneratorOperations{R,G,T,P}
+mutable struct ThermalGeneratorOperations{R,G,T,P}
 
     # Parameters
 
@@ -63,49 +63,7 @@ struct ThermalGeneratorOperations{R,G,T,P}
         @assert length(startupcost) == G
         @assert length(shutdowncost) == G
 
-        new{R,G,T,P}(
-
-            fixedcost, variablecost, startupcost, shutdowncost,
-
-            Array{VariableRef}(undef,R,G,T,P),
-            Array{VariableRef}(undef,R,G,T,P),
-            Array{VariableRef}(undef,R,G,T,P),
-
-            Array{VariableRef}(undef,R,G,T,P),
-            Array{VariableRef}(undef,R,G,T,P),
-            Array{VariableRef}(undef,R,G,T,P),
-
-            Array{ExpressionRef}(undef,R,G),
-            Array{ExpressionRef}(undef,R,G,P),
-            Array{ExpressionRef}(undef,R,G),
-
-            Array{ExpressionRef}(undef,R),
-            Array{ExpressionRef}(undef,R,T,P),
-            Array{ExpressionRef}(undef,R,T,P),
-            Array{ExpressionRef}(undef,R,T,P),
-
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T-1,P),
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T-1,P),
-
-            Array{EqualToConstraintRef}(undef,R,G,T-1,P),
-            Array{LessThanConstraintRef}(undef,R,G,T-i,P),
-            Array{LessThanConstraintRef}(undef,R,G,T-i,P),
-
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-
-            Array{GreaterThanConstraintRef}(undef,R,G,T-1,P),
-            Array{LessThanConstraintRef}(undef,R,G,T-1,P)
-
-        )
+        new{R,G,T,P}(fixedcost, variablecost, startupcost, shutdowncost)
 
     end
 
@@ -125,126 +83,126 @@ function setup!(
 
     # Variables
 
-    ops.committed .= @variable(m, [regions, gens, timesteps, periods], Int)
-    ops.started   .= @variable(m, [regions, gens, timesteps, periods], Int)
-    ops.shutdown  .= @variable(m, [regions, gens, timesteps, periods], Int)
+    ops.committed = @variable(m, [regions, gens, timesteps, periods], Int)
+    ops.started   = @variable(m, [regions, gens, timesteps, periods], Int)
+    ops.shutdown  = @variable(m, [regions, gens, timesteps, periods], Int)
 
-    ops.energydispatch .= @variable(m, [regions, gens, timesteps, periods])
-    ops.raisereserve   .= @variable(m, [regions, gens, timesteps, periods])
-    ops.lowerreserve   .= @variable(m, [regions, gens, timesteps, periods])
+    ops.energydispatch = @variable(m, [regions, gens, timesteps, periods])
+    ops.raisereserve   = @variable(m, [regions, gens, timesteps, periods])
+    ops.lowerreserve   = @variable(m, [regions, gens, timesteps, periods])
 
     # Expressions
 
-    ops.fixedcosts .=
+    ops.fixedcosts =
         @expression(m, [r in regions, g in gens],
                     ops.fixedcost[g] * invs.dispatchable[r,g])
 
-    ops.variablecosts .=
+    ops.variablecosts =
         @expression(m, [r in regions, g in gens, p in periods],
                     sum(ops.variablecost[g] * ops.energydispatch[r,g,t,p] +
                         ops.startupcost[g] * ops.started[r,g,t,p] +
                         ops.shutdowncost[g] * ops.shutdown[r,g,t,p]
                         for t in timesteps))
 
-    ops.operatingcosts .=
+    ops.operatingcosts =
         @expression(m, [r in regions, g in gens],
                     ops.fixedcosts[r,g] +
                     sum(ops.variablecosts[r,g,p] * periodweights[p] for p in periods))
 
-    ops.ucap .=
+    ops.ucap =
         @expression(m, [r in regions], sum(
             invs.dispatchable[r,g] * gens.maxgen[g] * gens.capacitycredit[g]
         for g in gens))
 
-    ops.totalenergy .=
+    ops.totalenergy =
         @expression(m, [r in regions, t in timesteps, p in periods],
                     sum(ops.energydispatch[r,g,t,p] for g in gens))
 
-    ops.totalraisereserve .=
+    ops.totalraisereserve =
         @expression(m, [r in regions, t in timesteps, p in periods],
                     sum(ops.raisereserve[r,g,t,p] for g in gens))
 
-    ops.totallowerreserve .=
+    ops.totallowerreserve =
         @expression(m, [r in regions, t in timesteps, p in periods],
                     sum(ops.lowerreserve[r,g,t,p] for g in gens))
 
     # Constraints
 
-    ops.minunitcommitment .=
+    ops.minunitcommitment =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     invs.committed[r,g,t,p] >= 0)
 
-    ops.maxunitcommitment .=
+    ops.maxunitcommitment =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     invs.committed[r,g,t,p] <= invs.dispatchable[r,g])
 
-    ops.minstartup .=
+    ops.minstartup =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.started[r,g,t,p] >= 0)
 
-    ops.maxstartup .= # Redundant given UC continuity + commitment max?
+    ops.maxstartup = # Redundant given UC continuity + commitment max?
         @constraint(m, [r in regions, g in gens, t in 2:T, p in periods],
                     ops.started[r,g,t,p] <=
                     invs.dispatchable[r,g] - ops.committed[r,g,t-1,p])
 
-    ops.minshutdown .=
+    ops.minshutdown =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.shutdown[r,g,t,p] >= 0)
 
-    ops.maxshutdown .= # Redundant given UC continuity + commitment max?
+    ops.maxshutdown = # Redundant given UC continuity + commitment max?
         @constraint(m, [r in regions, g in gens, t in 2:T, p in periods],
                     ops.shutdown[r,g,t,p] <= ops.committed[r,g,t-1,p])
 
-    ops.unitcommitmentcontinuity .=
+    ops.unitcommitmentcontinuity =
         @constraint(m, [r in regions, g in gens, t in 2:T, p in periods],
                     ops.committed[r,g,t,p] == ops.committed[r,g,t-1,p]
                     + ops.startup[r,g,t,p] - ops.shutdown[r,g,t,p])
 
-    ops.minunituptime .=
+    ops.minunituptime =
         @constraint(m, [r in regions, g in gens,
                         t in gens.minuptime[g]:T, p in periods],
                     sum(ops.startup[r,g,i,p]
                         for i in (t-gens.minuptime[g]+1):t) <=
                     ops.committed[r,g,t,p])
 
-    ops.minunitdowntime .=
+    ops.minunitdowntime =
         @constraint(m, [r in regions, g in gens,
                         t in gens.mindowntime[g]:T, p in periods],
                     sum(ops.shutdown[r,g,i,p]
                         for i in (t-gens.mindowntime[g]+1):t) <=
                     unitsdispatchable[r,g] - ops.committed[r,g,t,p])
 
-    ops.mingeneration .=
+    ops.mingeneration =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energydispatch[r,g,t,p] - ops.lowerreserve[r,g,t,p] >=
                     ops.committed[r,g,t,p] * gens.mingen[g])
 
-    ops.maxgeneration .=
+    ops.maxgeneration =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energydispatch[r,g,t,p] + ops.raisereserve[r,g,t,p] <=
                     ops.committed[r,g,t,p] * gens.maxgen[g])
 
-    ops.minlowerreserve .=
+    ops.minlowerreserve =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.lowerreserve[r,g,t,p] >= 0)
 
-    ops.maxlowerreserve .=
+    ops.maxlowerreserve =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.lowerreserve[r,g,t,p] <=
                     ops.committed[r,g,t,p] * gens.maxrampdown[g])
 
-    ops.minraisereserve .=
+    ops.minraisereserve =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.raisereserve[r,g,t,p] >= 0)
 
-    ops.maxraisereserve .=
+    ops.maxraisereserve =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.raisereserve[r,g,t,p] <=
                     ops.committed[r,g,t,p] * gens.maxrampup[g])
 
     # TODO: Double check these constraints make sense
 
-    ops.maxrampdown .=
+    ops.maxrampdown =
         @constraint(m, [r in regions, g in gens, t in 2:T, p in periods],
                     ops.energydispatch[r,g,t,p] - ops.lowerreserve[r,g,t,p] >=
                     ops.energydispatch[r,g,t-1,p]
@@ -254,7 +212,7 @@ function setup!(
                     - ops.shutdown[r,g,t,p] *
                       max(gens.mingen[g], gens.maxrampdown[g]))
 
-    ops.maxrampup .=
+    ops.maxrampup =
         @constraint(m, [r in regions, g in gens, t in 2:T, p in periods],
                     ops.energydispatch[r,g,t,p] + ops.lowerreserve[r,g,t,p] <=
                     ops.energydispatch[r,g,t-1,p]

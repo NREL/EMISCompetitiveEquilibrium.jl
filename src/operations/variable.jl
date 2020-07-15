@@ -1,4 +1,4 @@
-struct VariableGeneratorOperations{R,G,T,P}
+mutable struct VariableGeneratorOperations{R,G,T,P}
 
     # Parameters
 
@@ -39,32 +39,7 @@ struct VariableGeneratorOperations{R,G,T,P}
         G = length(fixedcost)
         @assert length(variablecost) == G
 
-        new{R,G,T,P}(
-
-            fixedcost, variablecost,
-
-            Array{VariableRef}(undef,R,G,T,P),
-            Array{VariableRef}(undef,R,G,T,P),
-            Array{VariableRef}(undef,R,G,T,P),
-            Array{VariableRef}(undef,R,G,T,P),
-
-            Array{ExpressionRef}(undef,R,G),
-            Array{ExpressionRef}(undef,R,G,P),
-            Array{ExpressionRef}(undef,R,G),
-
-            Array{ExpressionRef}(undef,R),
-            Array{ExpressionRef}(undef,R,T,P),
-            Array{ExpressionRef}(undef,R,T,P),
-            Array{ExpressionRef}(undef,R,T,P),
-
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-            Array{GreaterThanConstraintRef}(undef,R,G,T,P),
-            Array{LessThanConstraintRef}(undef,R,G,T,P),
-
-        )
+        new{R,G,T,P}(fixedcost, variablecost)
 
     end
 
@@ -79,73 +54,73 @@ function setup!(
 ) where {R,G,T,P}
 
     regions = 1:R
-    gens = 1:G # uh-oh
+    gens = 1:G
     timesteps = 1:T
     periods = 1:P
 
     # Variables
 
-    ops.energydispatch .= @variable(m, [regions, gens, timesteps, periods])
-    ops.raisereserve   .= @variable(m, [regions, gens, timesteps, periods])
-    ops.lowerreserve   .= @variable(m, [regions, gens, timesteps, periods])
+    ops.energydispatch = @variable(m, [regions, gens, timesteps, periods])
+    ops.raisereserve   = @variable(m, [regions, gens, timesteps, periods])
+    ops.lowerreserve   = @variable(m, [regions, gens, timesteps, periods])
 
     # Expressions
 
-    ops.fixedcosts .=
+    ops.fixedcosts =
         @expression(m, [r in regions, g in gens],
                     ops.fixedcost[g] * invs.dispatchable[r,g])
 
-    ops.variablecosts .=
+    ops.variablecosts =
         @expression(m, [r in regions, g in gens, p in periods],
                     sum(ops.variablecost[g] * ops.energydispatch[r,g,t,p]
                         for t in timesteps))
 
-    ops.operatingcosts .=
+    ops.operatingcosts =
         @expression(m, [r in regions, g in gens],
                     ops.fixedcosts[r,g] +
                     sum(ops.variablecosts[r,g,p] * periodweights[p] for p in periods))
 
-    ops.ucap .=
+    ops.ucap =
         @expression(m, [r in regions], 0) # TODO
 
-    ops.totalenergy .=
+    ops.totalenergy =
         @expression(m, [r in regions, t in timesteps, p in periods],
                     sum(ops.energydispatch[r,g,t,p] for g in gens))
 
-    ops.totalraisereserve .=
+    ops.totalraisereserve =
         @expression(m, [r in regions, t in timesteps, p in periods],
                     sum(ops.raisereserve[r,g,t,p] for g in gens))
 
-    ops.totallowerreserve .=
+    ops.totallowerreserve =
         @expression(m, [r in regions, t in timesteps, p in periods],
                     sum(ops.lowerreserve[r,g,t,p] for g in gens))
 
     # Constraints
 
-    ops.mingeneration .=
+    ops.mingeneration =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energydispatch[r,g,t,p] - ops.lowerreserve[r,g,t,p] >=
                     0)
 
-    ops.maxgeneration .=
+    ops.maxgeneration =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energydispatch[r,g,t,p] + ops.raisereserve[r,g,t,p] <=
                     invs.dispatchable[r,g,t,p] * units.maxgen[g])
 
-    ops.minlowerreserve .=
+    ops.minlowerreserve =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.lowerreserve[r,g,t,p] >= 0)
 
-    ops.maxlowerreserve .= # TODO: Is this redundant?
+    ops.maxlowerreserve = # TODO: Is this redundant?
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.lowerreserve[r,g,t,p] <=
                     invs.dispatchable[r,g,t,p] * units.maxgen[g])
 
-    ops.minraisereserve .=
+    ops.minraisereserve =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.raisereserve[r,g,t,p] >= 0)
 
-    ops.maxraisereserve .= # TODO: Is this redundant?
+    ops.maxraisereserve = # TODO: Is this redundant?
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.raisereserve[r,g,t,p] <=
                     invs.dispatchable[r,g,t,p] * units.maxgen[g])

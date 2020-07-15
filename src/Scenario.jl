@@ -1,8 +1,8 @@
 struct Scenario{R,G1,G2,G3,T,P,I<:AbstractProblem{R,G1,G2,G3,T,P}}
 
     probability::Float64
-    parentscenario::Union{Scenario{R,G1,G2,G3,T,P},Nothing}
-    childscenarios::Vector{Scenario{R,G1,G2,G3,T,P}}
+    parent::Union{Scenario{R,G1,G2,G3,T,P},Nothing}
+    children::Vector{Scenario{R,G1,G2,G3,T,P}}
     investmentproblem::I
 
     investments::Investments{R,G1,G2,G3}
@@ -13,7 +13,7 @@ struct Scenario{R,G1,G2,G3,T,P,I<:AbstractProblem{R,G1,G2,G3,T,P}}
 
     function Scenario{}(
         probability::Float64,
-        parentscenario::Scenario{R,G1,G2,G3,T,P,I},
+        parentscenario::Union{Scenario{R,G1,G2,G3,T,P,I},Nothing},
         childscenarios::Vector{Scenario{R,G1,G2,G3,T,P,I}},
         investmentproblem::I,
         investments::Investments{R,G1,G2,G3},
@@ -57,7 +57,7 @@ function Scenario(
     weights::Vector{Float64}
 ) where {R,G1,G2,G3,T,P,I<:AbstractProblem{R,G1,G2,G3,T,P}}
 
-    s = Scenario(1.0, nothing, Scenario{R,G1,G2,G3,T,P}[], invprob,
+    s = Scenario(1.0, nothing, Scenario{R,G1,G2,G3,T,P,I}[], invprob,
                  investments, operations, markets, weights)
 
     return setup!(s)
@@ -76,9 +76,9 @@ function setup!(s::Scenario)
 
     # Investments
     if isnothing(s.parent)
-        setup!(invs.thermalgens,  m, ip.thermalstart)
-        setup!(invs.variablegens, m, ip.variablestart)
-        setup!(invs.storages,     m, ip.storagestart)
+        setup!(invs.thermalgens,  m, ip.initialconditions.thermalgens)
+        setup!(invs.variablegens, m, ip.initialconditions.variablegens)
+        setup!(invs.storages,     m, ip.initialconditions.storages)
     else
         parentinvs = s.parent.investments
         setup!(invs.thermalgens,  ip.thermaltechs,  m, parentinvs.thermalgens)

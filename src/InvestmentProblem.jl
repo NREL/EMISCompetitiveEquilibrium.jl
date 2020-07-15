@@ -30,13 +30,14 @@ function InvestmentProblem(
     discountrate::Float64,
     investments::Investments{R,G1,G2,G3},
     operations::Operations{R,G1,G2,G3,T,P},
-    markets::Markets{R,T,P}
+    markets::Markets{R,T,P},
+    periodweights::Vector{Float64}
 ) where {R,G1,G2,G3,T,P}
 
     invprob = InvestmentProblem{T,P}(
-        Model(), techs, initialconds, discountrate)
+        Model(), techs, initconds, discountrate)
 
-    root = Scenario(invprob, investments, operations, markets)
+    root = Scenario(invprob, investments, operations, markets, periodweights)
     invprob.rootscenario = root
 
     return invprob

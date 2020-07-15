@@ -1,6 +1,7 @@
 module CompetitiveEquilibriumInvestments
 
 using JuMP
+import JuMP.Containers: SparseAxisArray
 
 import MathOptInterface
 const MOI = MathOptInterface
@@ -30,6 +31,7 @@ export
     Operations, ThermalGeneratorOperations, VariableGeneratorOperations,
                 StorageOperations, TransmissionOperations,
     Markets, CapacityMarket, EnergyMarket,
-             RaiseReserveMarket, LowerReserveMarket
+             RaiseReserveMarket, LowerReserveMarket,
+    Scenario, InvestmentProblem
 
 end
