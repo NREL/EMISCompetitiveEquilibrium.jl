@@ -31,11 +31,12 @@ function InvestmentProblem(
     investments::Investments{R,G1,G2,G3},
     operations::Operations{R,G1,G2,G3,T,P},
     markets::Markets{R,T,P},
-    periodweights::Vector{Float64}
+    periodweights::Vector{Float64},
+    optimizer::Type{<:MOI.AbstractOptimizer}
 ) where {R,G1,G2,G3,T,P}
 
     invprob = InvestmentProblem{T,P}(
-        Model(), techs, initconds, discountrate)
+        Model(optimizer), techs, initconds, discountrate)
 
     root = Scenario(invprob, investments, operations, markets, periodweights)
     invprob.rootscenario = root
@@ -45,7 +46,7 @@ function InvestmentProblem(
 end
 
 function solve!(invprob::InvestmentProblem)
-    @objective(invprob.m, Max, welfare(invprob.rootscenario))
+    @objective(invprob.model, Max, welfare(invprob.rootscenario))
     optimize!(invprob.model)
     return
 end

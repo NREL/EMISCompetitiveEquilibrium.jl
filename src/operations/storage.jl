@@ -1,4 +1,4 @@
-struct StorageOperations{R,G,T,P}
+mutable struct StorageOperations{R,G,T,P}
 
     # Parameters
 
@@ -53,14 +53,14 @@ end
 
 function setup!(
     ops::StorageOperations{R,G,T,P},
-    stors::StorageDevices{G},
+    units::StorageDevices{G},
     m::Model,
     invs::ResourceInvestments{R,G},
     periodweights::Vector{Float64}
 ) where {R,G,T,P}
 
     regions = 1:R
-    units = 1:G
+    gens = 1:G
     timesteps = 1:T
     periods = 1:P
 
@@ -90,23 +90,23 @@ function setup!(
                         for p in periods))
 
     ops.ucap =
-        @expression(m, [r in regions], sum(
-            invs.dispatchable[r,g] * gens.maxgen[g] * gens.capacitycredit[g]
-        for g in gens))
+        @expression(m, [r in regions], G > 0 ? sum(
+            invs.dispatchable[r,g] * units.maxgen[g] * units.capacitycredit[g]
+        for g in gens) : 0)
 
 
     ops.totalenergy =
         @expression(m, [r in regions, t in timesteps, p in periods],
-                    sum(ops.energydischarge[r,g,t,p] - ops.energycharge[r,g,t,p]
-                        for g in gens))
+                    G > 0 ? sum(ops.energydischarge[r,g,t,p] - ops.energycharge[r,g,t,p]
+                        for g in gens) : 0)
 
     ops.totalraisereserve =
         @expression(m, [r in regions, t in timesteps, p in periods],
-                    sum(ops.raisereserve[r,g,t,p] for g in gens))
+                    G > 0 ? sum(ops.raisereserve[r,g,t,p] for g in gens) : 0)
 
     ops.totallowerreserve =
         @expression(m, [r in regions, t in timesteps, p in periods],
-                    sum(ops.lowerreserve[r,g,t,p] for g in gens))
+                    G > 0 ? sum(ops.lowerreserve[r,g,t,p] for g in gens) : 0)
 
     ops.stateofcharge =
         @expression(m, [r in regions, g in gens, t in timesteps, p in periods],
@@ -123,7 +123,7 @@ function setup!(
     ops.maxdischarge_power =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energydischarge[r,g,t,p] <=
-                    invs.dispatchable[r,g] * stors.maxgen[g])
+                    invs.dispatchable[r,g] * units.maxgen[g])
 
     ops.maxdischarge_energy =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
@@ -136,12 +136,12 @@ function setup!(
     ops.maxcharge_power =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energycharge[r,g,t,p] <=
-                    invs.dispatchable[r,g] * stors.maxgen[g])
+                    invs.dispatchable[r,g] * units.maxgen[g])
 
     ops.maxcharge_energy =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energycharge[r,g,t,p] <=
-                    invs.dispatchable[r,g] * stors.maxenergy[g]
+                    invs.dispatchable[r,g] * units.maxenergy[g]
                      - ops.stateofcharge[r,g,t,p])
 
     ops.minenergy =
@@ -151,7 +151,7 @@ function setup!(
     ops.maxenergy =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.stateofcharge[r,g,t,p] <=
-                    invs.dispatchable[r,g] * stors.maxenergy[g])
+                    invs.dispatchable[r,g] * units.maxenergy[g])
 
     # TODO: Periodic SoC boundary conditions?
 

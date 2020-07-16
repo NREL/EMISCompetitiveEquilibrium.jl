@@ -85,15 +85,15 @@ function setup!(
 
     ops.totalenergy =
         @expression(m, [r in regions, t in timesteps, p in periods],
-                    sum(ops.energydispatch[r,g,t,p] for g in gens))
+                    G > 0 ? sum(ops.energydispatch[r,g,t,p] for g in gens) : 0)
 
     ops.totalraisereserve =
         @expression(m, [r in regions, t in timesteps, p in periods],
-                    sum(ops.raisereserve[r,g,t,p] for g in gens))
+                    G > 0 ? sum(ops.raisereserve[r,g,t,p] for g in gens) : 0)
 
     ops.totallowerreserve =
         @expression(m, [r in regions, t in timesteps, p in periods],
-                    sum(ops.lowerreserve[r,g,t,p] for g in gens))
+                    G > 0 ? sum(ops.lowerreserve[r,g,t,p] for g in gens) : 0)
 
     # Constraints
 

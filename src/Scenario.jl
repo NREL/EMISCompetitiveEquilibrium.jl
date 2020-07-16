@@ -1,4 +1,4 @@
-struct Scenario{R,G1,G2,G3,T,P,I<:AbstractProblem{R,G1,G2,G3,T,P}}
+struct Scenario{R,G1,G2,G3,T,P,I<:AbstractProblem{R,G1,G2,G3,T,P}} <: AbstractScenario
 
     probability::Float64
     parent::Union{Scenario{R,G1,G2,G3,T,P},Nothing}
@@ -75,24 +75,18 @@ function setup!(s::Scenario)
     weights = s.periodweights
 
     # Investments
-    if isnothing(s.parent)
-        setup!(invs.thermalgens,  m, ip.initialconditions.thermalgens)
-        setup!(invs.variablegens, m, ip.initialconditions.variablegens)
-        setup!(invs.storages,     m, ip.initialconditions.storages)
-    else
-        parentinvs = s.parent.investments
-        setup!(invs.thermalgens,  ip.thermaltechs,  m, parentinvs.thermalgens)
-        setup!(invs.variablegens, ip.variabletechs, m, parentinvs.variablegens)
-        setup!(invs.storages,     ip.storagetechs,  m, parentinvs.storages)
-    end
+    setup!(s, :thermalgens, m, ip.initialconditions.thermalgens)
+    setup!(s, :variablegens, m, ip.initialconditions.variablegens)
+    setup!(s, :storages, m, ip.initialconditions.storages)
 
     # Operations
-    setup!(ops.thermalgens,  ip.thermaltechs,  m, invs.thermalgens, weights)
-    setup!(ops.variablegens, ip.variabletechs, m, invs.variablegens, weights)
-    setup!(ops.storages,     ip.storagetechs,  m, invs.storages, weights)
+    setup!(ops.thermalgens,  ip.technologies.thermal,  m, invs.thermalgens, weights)
+    setup!(ops.variablegens, ip.technologies.variable, m, invs.variablegens, weights)
+    setup!(ops.storages,     ip.technologies.storage,  m, invs.storages, weights)
+    setup!(ops.transmission, m)
 
     # Markets
-    setup!(markets.capacity,     m, ops, weights)
+    setup!(markets.capacity,     m, ops)
     setup!(markets.energy,       m, ops, weights)
     setup!(markets.raisereserve, m, ops, weights)
     setup!(markets.lowerreserve, m, ops, weights)
@@ -103,16 +97,17 @@ end
 
 function maturing(
     s::Scenario, r::Int, g::Int,
-    leadtime::Symbol, action::Symbol)
+    invtype::Symbol, leadtime::Symbol, action::Symbol)
 
     stepsback = 0
-    count = zero(getfield(s.invs, action))[r,g]
+    count = ExpressionRef()
     historical = s
 
     while !isnothing(historical)
 
-        if getfield(historical.invs, leadtime)[r,g] == stepsback
-            count += getfield(historical.invs, action)[r,g]
+        invs = getfield(historical.investments, invtype)
+        if getfield(invs, leadtime)[g] == stepsback
+            count += getfield(invs, action)[r,g]
         end
 
         historical = s.parent
@@ -127,4 +122,5 @@ end
 welfare(s::Scenario) =
     welfare(s.investments) + welfare(s.operations) + welfare(s.markets) +
     s.investmentproblem.discountrate *
-    sum(cs.probability * welfare(cs) for cs in s.childscenarios)
+    ((length(s.children) > 0) ?
+        sum(cs.probability * welfare(cs) for cs in s.children) : 0)

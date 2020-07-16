@@ -59,8 +59,8 @@ end
 
 struct Technologies{G1,G2,G3}
 
-    thermaltechs::ThermalGenerators{G1}
-    variabletechs::VariableGenerators{G2}
-    storagetechs::StorageDevices{G3}
+    thermal::ThermalGenerators{G1}
+    variable::VariableGenerators{G2}
+    storage::StorageDevices{G3}
 
 end

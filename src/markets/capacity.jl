@@ -8,7 +8,7 @@ mutable struct CapacityMarket # Assumes a linear demand curve
 
     # Expressions
 
-    capacitywelfare::ExpressionRef # Capacity market welfare
+    capacitywelfare::QuadExpressionRef # Capacity market welfare
 
     function CapacityMarket(targetprice, targetcapacity, demandslope)
         @assert targetprice  >= 0

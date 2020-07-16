@@ -41,7 +41,7 @@ end
 
 function setup!(
     tx::TransmissionOperations{R,T,P},
-    m::Model, periodweights::Vector{Float64}
+    m::Model
 ) where {R,T,P}
 
     interfaces = 1:length(tx.labels)
@@ -65,7 +65,7 @@ function setup!(
 
     tx.maxflow_forward =
         @constraint(m, [i in interfaces, t in timesteps, p in periods],
-                    tx.flows[i] <= tx.limits[i,t,p])
+                    tx.flows[i,t,p] <= tx.limits[i])
 
     tx.maxflow_back =
         @constraint(m, [i in interfaces, t in timesteps, p in periods],
@@ -76,7 +76,7 @@ end
 flowout(r::Int, label::Pair{Int,Int}, x) =
     if r == first(label)
         x
-    elseif r == second(label)
+    elseif r == last(label)
         -x
     else
         zero(x)

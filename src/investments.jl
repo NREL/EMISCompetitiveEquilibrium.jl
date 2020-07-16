@@ -24,6 +24,7 @@ mutable struct ResourceInvestments{R,G}
     # although in terms of cash flow they may actually be amortized over time
     optioncost::Vector{Float64}     # ($/unit, g)
     buildcost::Vector{Float64}
+    retirementcost::Vector{Float64}
 
     optionleadtime::Vector{Int}     # investment periods, g
     buildleadtime::Vector{Int}
@@ -38,6 +39,9 @@ mutable struct ResourceInvestments{R,G}
     newretirements::Matrix{VariableRef}  # New options exercised / construction starts
 
     # Expressions
+
+    optionsvested::Matrix{ExpressionRef} # Newly-vested options (r x g)
+    buildsfinished::Matrix{ExpressionRef}  # Newly-completed construction
 
     vesting::Matrix{ExpressionRef} # Options vesting (r x g)
     buildable::Matrix{ExpressionRef} # Units buildable (option vested but not used)
@@ -57,13 +61,14 @@ mutable struct ResourceInvestments{R,G}
     maxnewbuilds_physicallimit::Matrix{LessThanConstraintRef}
 
     function ResourceInvestments{}(
-        optioncost, buildcost, optionleadtime, buildleadtime,
+        optioncost, buildcost, retirementcost, optionleadtime, buildleadtime,
         maxnewoptions, maxnewbuilds)
 
         R, G = size(maxnewoptions)
 
         @assert length(optioncost) == G
         @assert length(buildcost) == G
+        @assert length(retirementcost) == G
 
         @assert length(optionleadtime) == G
         @assert length(buildleadtime) == G
@@ -71,7 +76,8 @@ mutable struct ResourceInvestments{R,G}
         @assert size(maxnewoptions) == (R,G)
         @assert size(maxnewbuilds) == (R,G)
 
-        new{R,G}(optioncost, buildcost, optionleadtime, buildleadtime,
+        new{R,G}(optioncost, buildcost, retirementcost,
+                 optionleadtime, buildleadtime,
                  maxnewoptions, maxnewbuilds)
 
     end
@@ -79,16 +85,16 @@ mutable struct ResourceInvestments{R,G}
 end
 
 function setup!(
-    invs::ResourceInvestments{R,G},
+    s::AbstractScenario,
+    invtype::Symbol,
     m::Model,
-    history::Union{InitialInvestments{R,G},ResourceInvestments{R,G}}
+    initconds::InitialInvestments{R,G}
 ) where {R, G}
 
     regions = 1:R
     gens = 1:G
 
-    s = _ # TODO: Decide how best to pass this in
-    # The root scenario can be treated differently than scenarios with parents?
+    invs = getfield(s.investments, invtype)
 
     # Variables
 
@@ -100,19 +106,23 @@ function setup!(
 
     invs.optionsvested =
         @expression(m, [r in regions, g in gens],
-                    maturing(s, r, g, :optionleadtime, :newoptions))
+                    maturing(s, r, g, invtype, :optionleadtime, :newoptions))
 
     invs.buildsfinished =
         @expression(m, [r in regions, g in gens],
-                    maturing(s, r, g, :buildleadtime, :newbuilds))
+                    maturing(s, r, g, invtype, :buildleadtime, :newbuilds))
 
-    setup_unitstates!(invs, m, history)
+    if isnothing(s.parent)
+        setup_unitstates!(invs, m, initconds)
+    else
+        setup_unitstates!(invs, m, s.parent)
+    end
 
     invs.investmentcosts =
         @expression(m, [r in regions, g in gens],
-                    invs.optioncost[r,g] * invs.newoptions[r,g] +
-                    invs.buildcost[r,g] * invs.newbuilds[r,g] +
-                    invs.retirementcost[r,g] * invs.newretirements[r,g])
+                    invs.optioncost[g] * invs.newoptions[r,g] +
+                    invs.buildcost[g] * invs.newbuilds[r,g] +
+                    invs.retirementcost[g] * invs.newretirements[r,g])
 
     # Constraints
 
@@ -146,6 +156,9 @@ function setup_unitstates!(
     existing::InitialInvestments{R,G}
 ) where {R, G}
 
+    regions = 1:R
+    gens = 1:G
+
     invs.vesting =
         @expression(m, [r in regions, g in gens],
                     0 + invs.newoptions[r,g]
@@ -164,11 +177,11 @@ function setup_unitstates!(
     invs.dispatchable =
         @expression(m, [r in regions, g in gens],
                     existing.builds[r,g] + invs.buildsfinished[r,g]
-                    - invs.retirements[r,g])
+                    - invs.newretirements[r,g])
 
     invs.retired =
         @expression(m, [r in regions, g in gens],
-                    0 + invs.retirements[r,g])
+                    0 + invs.newretirements[r,g])
 
 end
 
@@ -177,6 +190,9 @@ function setup_unitstates!(
     m::Model,
     parentinvs::ResourceInvestments{R,G}
 ) where {R, G}
+
+    regions = 1:R
+    gens = 1:G
 
     invs.vesting =
         @expression(m, [r in regions, g in gens],
@@ -196,11 +212,11 @@ function setup_unitstates!(
     invs.dispatchable =
         @expression(m, [r in regions, g in gens],
                     parentinvs.dispatchable[r,g] + invs.buildsfinished[r,g]
-                    - invs.retirements[r,g])
+                    - invs.newretirements[r,g])
 
     invs.retired =
         @expression(m, [r in regions, g in gens],
-                    parentinvs.retired[r,g] + invs.retirements[r,g])
+                    parentinvs.retired[r,g] + invs.newretirements[r,g])
 
 
 end

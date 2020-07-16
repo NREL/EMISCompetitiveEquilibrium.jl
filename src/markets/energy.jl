@@ -9,6 +9,7 @@ mutable struct EnergyMarket{R,T,P} # Assumes completely inelastic demand
 
     # Expressions
     shortfallcost::Matrix{ExpressionRef} # Shortfall costs ($, r x p)
+    totalshortfallcost::Vector{ExpressionRef} # Shortfall costs ($, r x p)
 
     # Constraints
     minshortfall::Array{GreaterThanConstraintRef,3} # Minimum load shortfall (r x t x p)
@@ -24,7 +25,8 @@ mutable struct EnergyMarket{R,T,P} # Assumes completely inelastic demand
 end
 
 function setup!(
-    market::EnergyMarket{R,T,P}, m::Model, ops::Operations{R,G1,G2,G3,T,P}
+    market::EnergyMarket{R,T,P}, m::Model,
+    ops::Operations{R,G1,G2,G3,T,P}, periodweights::Vector{Float64}
 ) where {R,G1,G2,G3,T,P}
 
     regions = 1:R

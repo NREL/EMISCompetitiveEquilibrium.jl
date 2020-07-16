@@ -1,4 +1,4 @@
-struct LowerReserveMarket{R,T,P} # Assumes completely inelastic demand
+mutable struct LowerReserveMarket{R,T,P} # Assumes completely inelastic demand
 
     # Parameters
     demand::Array{Float64,3} # (MW, r x t x p)
@@ -8,7 +8,8 @@ struct LowerReserveMarket{R,T,P} # Assumes completely inelastic demand
     shortfall::Array{VariableRef,3}  # Lower reserve shortfall (MW, r x t x p)
 
     # Expressions
-    shortfallcost::Vector{ExpressionRef} # Shortfall costs ($, p)
+    shortfallcost::Matrix{ExpressionRef} # Shortfall costs ($, p)
+    totalshortfallcost::Vector{ExpressionRef} # Shortfall costs ($, p)
 
     # Constraints
     minshortfall::Array{GreaterThanConstraintRef,3} # Minimum reserve shortfall (r x t x p)
@@ -24,7 +25,8 @@ struct LowerReserveMarket{R,T,P} # Assumes completely inelastic demand
 end
 
 function setup!(
-    market::LowerReserveMarket{R,T,P}, m::Model, ops::Operations{R,G1,G2,G3,T,P}
+    market::LowerReserveMarket{R,T,P}, m::Model,
+    ops::Operations{R,G1,G2,G3,T,P}, periodweights::Vector{Float64}
 ) where {R,G1,G2,G3,T,P}
 
     regions = 1:R
@@ -53,7 +55,7 @@ function setup!(
         @constraint(m, [r in regions, t in timesteps, p in periods],
                     market.shortfall[r,t,p] >= 0)
 
-    market.marketclearning =
+    market.marketclearing =
         @constraint(m, [r in regions, t in timesteps, p in periods],
                     lowerreserve(ops, r, t, p) + market.shortfall[r,t,p] ==
                     market.demand[r,t,p])
