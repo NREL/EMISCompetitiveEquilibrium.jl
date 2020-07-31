@@ -47,7 +47,7 @@ struct StorageDevices{G3}
 
     chargeefficiency::Vector{Float64}    # (fraction, g)
     dischargeefficiency::Vector{Float64} # (fraction, g)
-    carryoverefficieny::Vector{Float64}  # (fraction, g)
+    carryoverefficiency::Vector{Float64}  # (fraction, g)
 
     function StorageDevices{}(args...)
         G = length(first(args))

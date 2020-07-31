@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<style>
+
+    * {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-family: sans-serif;
+    }
+
+    ul li {
+        margin-left: 15px;
+        position: relative;
+        padding-left: 5px;
+    }
+
+    ul li::before {
+        content: " ";
+        position: absolute;
+        width: 1px;
+        background-color: #000;
+        top: 5px;
+        bottom: -12px;
+        left: -10px;
+    }
+
+
+    body > ul > li:first-child::before { top: 12px; }
+
+    ul li:not(:first-child):last-child::before { display: none; }
+
+    ul li:only-child::before {
+        display: list-item;
+        content: " ";
+        position: absolute;
+        width: 1px;
+        background-color: #000;
+        top: 5px;
+        bottom: 7px;
+        height: 7px;
+        left: -10px;
+    }
+
+    ul li::after {
+        content: " ";
+        position: absolute;
+        left: -10px;
+        width: 10px;
+        height: 1px;
+        background-color: #000;
+        top: 12px;
+    }
+
+
+
+    ul li#root::before { display: none; }
+    ul li#root:only-child::before { display: none; }
+    ul li#root::after { display: none; }
+
+    li.folder { font-weight: bold; }
+
+    li.file { font-weight: normal; }
+    li.file ul li::before { background-color: #999; }
+    li.file ul li:only-child::before { background-color: #999; }
+    li.file ul li::after { background-color: #999; }
+
+    li.file ul li {
+        color: #999;
+        font-size: smaller;
+        font-style: italic;
+    }
+
+    li.file ul li.id {
+        font-weight: bold;
+    }
+
+    span.note {
+        color: #1c439e;
+        font-size: smaller;
+        font-style: italic;
+        font-weight: normal;
+    }
+
+</style>
+</head>
+
+<body>
+<ul><li id="root">/<ul>
+
+    <li class="file">
+        regions.csv
+        <ul>
+            <li class="id">name</li>
+        </ul>
+    </li>
+    <li class="file">
+        periods.csv
+        <ul>
+            <li class="id">name</li>
+            <li>weight</li>
+        </ul>
+    </li>
+    <li class="file">
+        initialconditions.csv
+        <ul>
+            <li class="id">class</li>
+            <li class="id">region</li>
+            <li>built</li>
+            <li>optioned</li>
+        </ul>
+    </li>
+    <li class="folder">
+        technical/
+        <ul>
+            <li class="file">
+                thermal.csv
+                <ul>
+                    <li class="id">name</li>
+                    <li>owner</li>
+                    <li>mingen</li>
+                    <li>maxgen</li>
+                    <li>minuptime</li>
+                    <li>mindowntime</li>
+                    <li>maxrampup</li>
+                    <li>maxrampdown</li>
+                    <li>capacitycredit</li>
+                </ul>
+            </li>
+            <li class="file">
+                variable.csv
+                <ul>
+                    <li class="id">name</li>
+                    <li>owner</li>
+                    <li>maxgen</li>
+                    <li>capacitycredit (starting estimate)</li>
+                </ul>
+            </li>
+            <li class="file">
+                storage.csv
+                <ul>
+                    <li class="id">name</li>
+                    <li>owner</li>
+                    <li>maxcharge</li>
+                    <li>maxdischarge</li>
+                    <li>maxenergy</li>
+                    <li>chargeefficiency</li>
+                    <li>dischargeefficiency</li>
+                    <li>carryoverefficiency</li>
+                    <li>capacitycredit</li>
+                </ul>
+            </li>
+            <li class="file">
+                interfaces.csv
+                <ul>
+                    <li class="id">name</li>
+                    <li>from</li>
+                    <li>to</li>
+                </ul>
+            </li>
+        </ul>
+    </li>
+    <li class="folder">
+        scenarios/
+        <ul>
+            <li class="file">
+                tree.csv
+                <span class="note"> - one row per scenario</span>
+                <ul>
+                    <li class="id">name</li>
+                    <li>parent</li>
+                    <li>probability</li>
+                </ul>
+            </li>
+            <li class="folder">{scenarioname}/ <span class="note"> - one folder per scenario</span>
+                <ul>
+                    <li class="folder">markets/
+                        <ul>
+                            <li class="folder">capacity/
+                                <ul>
+                                    <li class="file">
+                                        rules.csv
+                                        <ul>
+                                            <li>[demand curve parameters]</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li class="folder">energy/
+                                <ul>
+                                    <li class="file">
+                                        rules.csv
+                                        <ul>
+                                            <li class="id">region</li>
+                                            <li>pricecap</li>
+                                        </ul>
+                                    </li>
+                                    <li class="file">
+                                        demand.csv
+                                        <ul>
+                                            <li class="id">period</li>
+                                            <li class="id">timestep</li>
+                                            <li>{regions...}</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li class="folder">raisereserve/
+                                <ul>
+                                    <li class="file">
+                                        rules.csv
+                                        <ul>
+                                            <li class="id">region</li>
+                                            <li>pricecap</li>
+                                        </ul>
+                                    </li>
+                                    <li class="file">
+                                        demand.csv
+                                        <ul>
+                                            <li class="id">period</li>
+                                            <li class="id">timestep</li>
+                                            <li>{regions...}</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li class="folder">lowerreserve/
+                                <ul>
+                                    <li class="file">
+                                        rules.csv
+                                        <ul>
+                                            <li class="id">region</li>
+                                            <li>pricecap</li>
+                                        </ul>
+                                    </li>
+                                    <li class="file">
+                                        demand.csv
+                                        <ul>
+                                            <li class="id">period</li>
+                                            <li class="id">timestep</li>
+                                            <li>{regions...}</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="folder">resources/
+                        <ul>
+                            <li class="folder">thermal/
+                                <ul>
+                                    <li class="file">
+                                        parameters.csv
+                                        <ul>
+                                            <li class="id">class</li>
+                                            <li>optioncost</li>
+                                            <li>optionleadtime</li>
+                                            <li>newoptionslimit</li>
+                                            <li>buildcost</li>
+                                            <li>buildleadtime</li>
+                                            <li>newbuildslimit</li>
+                                            <li>retirementcost</li>
+                                            <li>fixedcost</li>
+                                            <li>variablecost</li>
+                                            <li>startupcost</li>
+                                            <li>shutdowncost</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li class="folder">variable/
+                                <ul>
+                                    <li class="file">
+                                        parameters.csv
+                                        <ul>
+                                            <li class="id">class</li>
+                                            <li>optioncost</li>
+                                            <li>optionleadtime</li>
+                                            <li>newoptionslimit</li>
+                                            <li>buildcost</li>
+                                            <li>buildleadtime</li>
+                                            <li>newbuildslimit</li>
+                                            <li>retirementcost</li>
+                                            <li>fixedcost</li>
+                                            <li>variablecost</li>
+                                        </ul>
+                                    </li>
+                                    <li class="folder">availability/
+                                        <ul>
+                                            <li class="file">
+                                                {class}.csv
+                                                <span class="note"> - one file per unit class</span>
+                                                <ul>
+                                                    <li class="id">period</li>
+                                                    <li class="id">timestep</li>
+                                                    <li>{regions...}</li>
+
+                                                </ul>
+                                            </li>
+                                        </ul>
+                                    </li>
+                            </ul>
+                            </li>
+                            <li class="folder">storage/
+                                <ul>
+                                    <li class="file">
+                                        parameters.csv
+                                        <ul>
+                                            <li class="id">class</li>
+                                            <li>optioncost</li>
+                                            <li>optionleadtime</li>
+                                            <li>newoptionslimit</li>
+                                            <li>buildcost</li>
+                                            <li>buildleadtime</li>
+                                            <li>newbuildslimit</li>
+                                            <li>retirementcost</li>
+                                            <li>fixedcost</li>
+                                            <li>variablecost</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li class="folder">transmission/
+                                <ul>
+                                    <li class="file">
+                                        parameters.csv
+                                        <ul>
+                                            <li class="id">interface</li>
+                                            <li>limit</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+            </ul>
+            </li>
+        </ul>
+    </li>
+
+</ul></li>
+</body>
