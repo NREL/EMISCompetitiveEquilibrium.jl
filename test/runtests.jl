@@ -44,7 +44,8 @@ ops_thermal =
     ThermalGeneratorOperations{R,T,P}([200.], [4.], [2.], [2.])
 
 ops_variable =
-    VariableGeneratorOperations{R,T,P}(Float64[], Float64[])
+    VariableGeneratorOperations{R,T,P}(
+        Float64[], Float64[], Array{Float64}(undef, R, 0, T, P))
 
 ops_storage =
     StorageOperations{R,T,P}(Float64[], Float64[])

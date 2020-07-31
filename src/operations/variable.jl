@@ -4,6 +4,7 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
 
     fixedcost::Vector{Float64}      # $/unit/investment period, g
     variablecost::Vector{Float64}   # $/MW/hour, g
+    capacityfactor::Array{Float64,4} # MW, r x g x t x p
 
     # Variables
 
@@ -33,13 +34,15 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
 
     function VariableGeneratorOperations{R,T,P}(
         fixedcost::Vector{Float64},
-        variablecost::Vector{Float64}
+        variablecost::Vector{Float64},
+        capacityfactor::Array{Float64,4}
     ) where {R,T,P}
 
         G = length(fixedcost)
         @assert length(variablecost) == G
+        @assert size(capacityfactor) == (R, G, T, P)
 
-        new{R,G,T,P}(fixedcost, variablecost)
+        new{R,G,T,P}(fixedcost, variablecost, capacityfactor)
 
     end
 
@@ -105,7 +108,7 @@ function setup!(
     ops.maxgeneration =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
                     ops.energydispatch[r,g,t,p] + ops.raisereserve[r,g,t,p] <=
-                    invs.dispatchable[r,g,t,p] * units.maxgen[g])
+                    invs.dispatchable[r,g,t,p] * units.capacityfactor[r,g,t,p] * units.maxgen[g])
 
     ops.minlowerreserve =
         @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
