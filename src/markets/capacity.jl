@@ -19,6 +19,18 @@ mutable struct CapacityMarket # Assumes a linear demand curve
 
 end
 
+function CapacityMarket(capacitypath::String)
+
+    capacitydata = DataFrame!(CSV.File(joinpath(capacitypath, "rules.csv")))
+
+    targetprice = first(capacitydata.targetprice)
+    targetcapacity = first(capacitydata.targetcapacity)
+    demandslope = first(capacitydata.demandslope)
+
+    return CapacityMarket(targetprice, targetcapacity, demandslope)
+
+end
+
 function setup!(market::CapacityMarket, m::Model, ops::Operations)
 
     startprice =

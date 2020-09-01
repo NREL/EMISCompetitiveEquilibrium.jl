@@ -1,6 +1,4 @@
-mutable struct TransmissionOperations{R,T,P}
-
-    labels::Vector{Pair{Int,Int}}
+mutable struct TransmissionOperations{R,I,T,P}
 
     # Parameters
 
@@ -20,60 +18,68 @@ mutable struct TransmissionOperations{R,T,P}
     maxflow_back::Array{LessThanConstraintRef,3}
 
     function TransmissionOperations{R,T,P}(
-        labels::Vector{Pair{Int,Int}},
         limits::Vector{Float64}
     ) where {R,T,P}
 
-        I = length(labels)
-        @assert length(limits) == I
-
-        @assert all(x -> 1 <= first(x) <= R, labels)
-        @assert all(x -> 1 <= last(x) <= R, labels)
-        @assert allunique(tuple.(minimum.(labels), maximum.(labels)))
-
+        I = length(limits)
         @assert all(x -> x >= 0, limits)
 
-        new{R,T,P}(labels, limits)
+        new{R,I,T,P}(limits)
 
     end
 
 end
 
-function setup!(
-    tx::TransmissionOperations{R,T,P},
-    m::Model
-) where {R,T,P}
+function TransmissionOperations{T,P}(
+    interfaces::Interfaces{I,R}, transmissionpath::String
+) where {I,R,T,P}
 
-    interfaces = 1:length(tx.labels)
-    regions = 1:R
-    timesteps = 1:T
-    periods = 1:P
+    transmissiondata =
+        DataFrame!(CSV.File(joinpath(transmissionpath, "parameters.csv")))
+
+    interfacelookup = Dict(zip(interfaces.name, 1:I))
+    limits = zeros(Float64, I)
+
+    for row in eachrow(transmissiondata)
+        int_idx = interfacelookup[row.interface]
+        limits[int_idx] = row.limit
+    end
+
+    return TransmissionOperations{R,T,P}(limits)
+
+end
+
+function setup!(
+    tx::TransmissionOperations{R,I,T,P},
+    interfaces::Interfaces{I,R},
+    m::Model
+) where {R,I,T,P}
 
     # Variables
 
     tx.flows =
-        @variable(m, [i in interfaces, t in timesteps, p in periods])
+        @variable(m, [i in 1:I, t in 1:T, p in 1:P])
 
     # Expressions
 
     tx.exports =
-        @expression(m, [r in regions, t in timesteps, p in periods],
+        @expression(m, [r in 1:R, t in 1:T, p in 1:P],
                     sum(flowout(r, l, tx.flows[i,t,p])
-                        for (i, l) in enumerate(tx.labels)))
+                        for (i, l) in enumerate(interfaces.regions)))
 
     # Constraints
 
     tx.maxflow_forward =
-        @constraint(m, [i in interfaces, t in timesteps, p in periods],
+        @constraint(m, [i in 1:I, t in 1:T, p in 1:P],
                     tx.flows[i,t,p] <= tx.limits[i])
 
     tx.maxflow_back =
-        @constraint(m, [i in interfaces, t in timesteps, p in periods],
+        @constraint(m, [i in 1:I, t in 1:T, p in 1:P],
                     -tx.limits[i] <= tx.flows[i,t,p])
 
 end
 
-flowout(r::Int, label::Pair{Int,Int}, x) =
+flowout(r::Int, label::Tuple{Int,Int}, x) =
     if r == first(label)
         x
     elseif r == last(label)

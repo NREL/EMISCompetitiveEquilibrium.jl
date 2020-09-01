@@ -26,37 +26,33 @@ end
 
 function setup!(
     market::LowerReserveMarket{R,T,P}, m::Model,
-    ops::Operations{R,G1,G2,G3,T,P}, periodweights::Vector{Float64}
-) where {R,G1,G2,G3,T,P}
-
-    regions = 1:R
-    timesteps = 1:T
-    periods = 1:P
+    ops::Operations{R,G1,G2,G3,I,T,P}, periodweights::Vector{Float64}
+) where {R,G1,G2,G3,I,T,P}
 
     # Variables
 
     market.shortfall =
-        @variable(m, [r in regions, t in timesteps, p in periods])
+        @variable(m, [r in 1:R, t in 1:T, p in 1:P])
 
     # Expressions
 
     market.shortfallcost =
-        @expression(m, [r in regions, p in periods],
+        @expression(m, [r in 1:R, p in 1:P],
                     sum(market.shortfall[r,t,p] * market.pricecap
-                        for t in timesteps))
+                        for t in 1:T))
 
     market.totalshortfallcost =
-        @expression(m, [r in regions],
-            sum(market.shortfallcost[r,p] * periodweights[p] for p in periods))
+        @expression(m, [r in 1:R],
+            sum(market.shortfallcost[r,p] * periodweights[p] for p in 1:P))
 
     # Constraints
 
     market.minshortfall =
-        @constraint(m, [r in regions, t in timesteps, p in periods],
+        @constraint(m, [r in 1:R, t in 1:T, p in 1:P],
                     market.shortfall[r,t,p] >= 0)
 
     market.marketclearing =
-        @constraint(m, [r in regions, t in timesteps, p in periods],
+        @constraint(m, [r in 1:R, t in 1:T, p in 1:P],
                     lowerreserve(ops, r, t, p) + market.shortfall[r,t,p] ==
                     market.demand[r,t,p])
 

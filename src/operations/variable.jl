@@ -32,19 +32,72 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
     minraisereserve::Array{GreaterThanConstraintRef,4}
     maxraisereserve::Array{LessThanConstraintRef,4}
 
-    function VariableGeneratorOperations{R,T,P}(
+    function VariableGeneratorOperations{}(
         fixedcost::Vector{Float64},
         variablecost::Vector{Float64},
         capacityfactor::Array{Float64,4}
-    ) where {R,T,P}
+    )
 
-        G = length(fixedcost)
+        R, G, T, P = size(capacityfactor)
+
+        @assert length(fixedcost) == G
         @assert length(variablecost) == G
-        @assert size(capacityfactor) == (R, G, T, P)
 
         new{R,G,T,P}(fixedcost, variablecost, capacityfactor)
 
     end
+
+end
+
+function VariableGeneratorOperations{R,T,P}(
+    variablegens::VariableGenerators{G},
+    regions::Dict{String,Int}, periods::Dict{String,Int},
+    variablepath::String
+) where {R,G,T,P}
+
+    variablelookup = Dict(zip(variablegens.name, 1:G))
+    fixedcost = zeros(Float64, R)
+    variablecost = zeros(Float64, R)
+    capacityfactor = zeros(Float64, R, G, T, P)
+
+    availabilitypath = joinpath(variablepath, "availability")
+
+    for classfile in readdir(availabilitypath)
+
+        classmatch = match(r"(.*)\.csv", classfile)
+        isnothing(classmatch) && continue 
+        class = classmatch[1]
+
+        gen_idx = variablelookup[class]
+        gen_max = variablegens.maxgen[gen_idx]
+
+        availabilitydata = DataFrame!(CSV.File(
+            joinpath(availabilitypath, classfile)))
+
+        availabilitydata = stack(availabilitydata, Not(:period,:timestep),
+              variable_name=:region, value_name=:availability)
+
+        for row in eachrow(availabilitydata)
+
+            r_idx = row.region
+            t = row.timestep
+            p_idx = row.region
+
+            capacityfactor[r_idx,gen_idx,t,p_idx] = row.availability / gen_max
+
+        end
+
+    end
+
+    variabledata = DataFrame!(CSV.File(joinpath(variablepath, "parameters.csv")))
+
+    for row in eachrow(variabledata)
+        gen_idx = variablelookup[row.class]
+        fixedcost[gen_idx] = row.fixedcost
+        variablecost[gen_idx] = row.variablecost
+    end
+
+    return VariableGeneratorOperations(fixedcost, variablecost, capacityfactor)
 
 end
 
@@ -56,75 +109,70 @@ function setup!(
     periodweights::Vector{Float64}
 ) where {R,G,T,P}
 
-    regions = 1:R
-    gens = 1:G
-    timesteps = 1:T
-    periods = 1:P
-
     # Variables
 
-    ops.energydispatch = @variable(m, [regions, gens, timesteps, periods])
-    ops.raisereserve   = @variable(m, [regions, gens, timesteps, periods])
-    ops.lowerreserve   = @variable(m, [regions, gens, timesteps, periods])
+    ops.energydispatch = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    ops.raisereserve   = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    ops.lowerreserve   = @variable(m, [1:R, 1:G, 1:T, 1:P])
 
     # Expressions
 
     ops.fixedcosts =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     ops.fixedcost[g] * invs.dispatchable[r,g])
 
     ops.variablecosts =
-        @expression(m, [r in regions, g in gens, p in periods],
+        @expression(m, [r in 1:R, g in 1:G, p in 1:P],
                     sum(ops.variablecost[g] * ops.energydispatch[r,g,t,p]
-                        for t in timesteps))
+                        for t in 1:T))
 
     ops.operatingcosts =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     ops.fixedcosts[r,g] +
-                    sum(ops.variablecosts[r,g,p] * periodweights[p] for p in periods))
+                    sum(ops.variablecosts[r,g,p] * periodweights[p] for p in 1:P))
 
     ops.ucap =
-        @expression(m, [r in regions], 0) # TODO
+        @expression(m, [r in 1:R], 0) # TODO
 
     ops.totalenergy =
-        @expression(m, [r in regions, t in timesteps, p in periods],
-                    G > 0 ? sum(ops.energydispatch[r,g,t,p] for g in gens) : 0)
+        @expression(m, [r in 1:R, t in 1:T, p in 1:P],
+                    G > 0 ? sum(ops.energydispatch[r,g,t,p] for g in 1:G) : 0)
 
     ops.totalraisereserve =
-        @expression(m, [r in regions, t in timesteps, p in periods],
-                    G > 0 ? sum(ops.raisereserve[r,g,t,p] for g in gens) : 0)
+        @expression(m, [r in 1:R, t in 1:T, p in 1:P],
+                    G > 0 ? sum(ops.raisereserve[r,g,t,p] for g in 1:G) : 0)
 
     ops.totallowerreserve =
-        @expression(m, [r in regions, t in timesteps, p in periods],
-                    G > 0 ? sum(ops.lowerreserve[r,g,t,p] for g in gens) : 0)
+        @expression(m, [r in 1:R, t in 1:T, p in 1:P],
+                    G > 0 ? sum(ops.lowerreserve[r,g,t,p] for g in 1:G) : 0)
 
     # Constraints
 
     ops.mingeneration =
-        @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
+        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.energydispatch[r,g,t,p] - ops.lowerreserve[r,g,t,p] >=
                     0)
 
     ops.maxgeneration =
-        @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
+        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.energydispatch[r,g,t,p] + ops.raisereserve[r,g,t,p] <=
                     invs.dispatchable[r,g,t,p] * units.capacityfactor[r,g,t,p] * units.maxgen[g])
 
     ops.minlowerreserve =
-        @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
+        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.lowerreserve[r,g,t,p] >= 0)
 
     ops.maxlowerreserve = # TODO: Is this redundant?
-        @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
+        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.lowerreserve[r,g,t,p] <=
                     invs.dispatchable[r,g,t,p] * units.maxgen[g])
 
     ops.minraisereserve =
-        @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
+        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.raisereserve[r,g,t,p] >= 0)
 
     ops.maxraisereserve = # TODO: Is this redundant?
-        @constraint(m, [r in regions, g in gens, t in timesteps, p in periods],
+        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.raisereserve[r,g,t,p] <=
                     invs.dispatchable[r,g,t,p] * units.maxgen[g])
 

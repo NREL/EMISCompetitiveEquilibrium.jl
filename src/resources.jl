@@ -49,6 +49,8 @@ struct StorageDevices{G3}
     dischargeefficiency::Vector{Float64} # (fraction, g)
     carryoverefficiency::Vector{Float64}  # (fraction, g)
 
+    capacitycredit::Vector{Float64}  # (fraction, g)
+
     function StorageDevices{}(args...)
         G = length(first(args))
         @assert all(a -> length(a) == G, args)
@@ -57,10 +59,49 @@ struct StorageDevices{G3}
 
 end
 
-struct Technologies{G1,G2,G3}
+struct Interfaces{I,R}
+
+    name::Vector{String}
+    regions::Vector{Tuple{Int,Int}}
+
+    function Interfaces{R}(
+        name::Vector{String},
+        regions::Vector{Tuple{Int,Int}}
+    ) where R
+
+        I = length(name)
+        @assert I == length(regions)
+
+        @assert all(x -> 1 <= first(x) <= R, regions)
+        @assert all(x -> 1 <= last(x) <= R, regions)
+        @assert allunique(tuple.(minimum.(regions), maximum.(regions)))
+
+        new{I,R}(name, regions)
+
+    end
+
+end
+
+struct Technologies{G1,G2,G3,I,R}
 
     thermal::ThermalGenerators{G1}
     variable::VariableGenerators{G2}
     storage::StorageDevices{G3}
+    interface::Interfaces{I,R}
+
+    function Technologies{}(
+        thermal::ThermalGenerators{G1},
+        variable::VariableGenerators{G2},
+        storage::StorageDevices{G3},
+        interface::Interfaces{I,R}
+    ) where {G1,G2,G3,I,R}
+
+        allunique(vcat(thermal.name, variable.name,
+                       storage.name, interface.name)) ||
+            error("Resource class names must be unique")
+
+        new{G1,G2,G3,I,R}(thermal, variable, storage, interface)
+
+    end
 
 end

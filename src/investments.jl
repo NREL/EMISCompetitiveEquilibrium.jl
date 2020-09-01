@@ -84,6 +84,20 @@ mutable struct ResourceInvestments{R,G}
 
 end
 
+function ResourceInvestments(classes::Vector{String}, resourcetypefolder::String)
+
+    data = DataFrame!(CSV.File(joinpath(resourcetypefolder, "parameters.csv")))
+
+    data.names == classes ||
+       error("Scenario-level resource data should match technical data")
+
+    return ResourceInvestments(
+        data.optioncost, data.buildcost, data.retirementcost,
+        data.optionleadtime, data.buildleadtime,
+        data.maxnewoptions, data.maxnewbuilds)
+
+end
+
 function setup!(
     s::AbstractScenario,
     invtype::Symbol,
@@ -91,25 +105,22 @@ function setup!(
     initconds::InitialInvestments{R,G}
 ) where {R, G}
 
-    regions = 1:R
-    gens = 1:G
-
     invs = getfield(s.investments, invtype)
 
     # Variables
 
-    invs.newoptions = @variable(m, [regions, gens], Int)
-    invs.newbuilds = @variable(m, [regions, gens], Int)
-    invs.newretirements = @variable(m, [regions, gens], Int)
+    invs.newoptions = @variable(m, [1:R, 1:G], Int)
+    invs.newbuilds = @variable(m, [1:R, 1:G], Int)
+    invs.newretirements = @variable(m, [1:R, 1:G], Int)
 
     # Expressions
 
     invs.optionsvested =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     maturing(s, r, g, invtype, :optionleadtime, :newoptions))
 
     invs.buildsfinished =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     maturing(s, r, g, invtype, :buildleadtime, :newbuilds))
 
     if isnothing(s.parent)
@@ -119,7 +130,7 @@ function setup!(
     end
 
     invs.investmentcosts =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     invs.optioncost[g] * invs.newoptions[r,g] +
                     invs.buildcost[g] * invs.newbuilds[r,g] +
                     invs.retirementcost[g] * invs.newretirements[r,g])
@@ -127,23 +138,23 @@ function setup!(
     # Constraints
 
     invs.minnewoptions =
-        @constraint(m, [r in regions, g in gens],
+        @constraint(m, [r in 1:R, g in 1:G],
                     invs.newoptions[r,g] >= 0)
 
     invs.maxnewoptions =
-        @constraint(m, [r in regions, g in gens],
+        @constraint(m, [r in 1:R, g in 1:G],
                     invs.newoptions[r,g] <= invs.newoptionslimit[r,g])
 
     invs.minnewbuilds =
-        @constraint(m, [r in regions, g in gens],
+        @constraint(m, [r in 1:R, g in 1:G],
                     invs.newbuilds[r,g] >= 0)
 
     invs.maxnewbuilds_optionlimit =
-        @constraint(m, [r in regions, g in gens],
+        @constraint(m, [r in 1:R, g in 1:G],
                     invs.newbuilds[r,g] <= invs.buildable[r,g])
 
     invs.maxnewbuilds_physicallimit =
-        @constraint(m, [r in regions, g in gens],
+        @constraint(m, [r in 1:R, g in 1:G],
                     invs.newbuilds[r,g] <= invs.newbuildslimit[r,g])
 
     return
@@ -156,31 +167,28 @@ function setup_unitstates!(
     existing::InitialInvestments{R,G}
 ) where {R, G}
 
-    regions = 1:R
-    gens = 1:G
-
     invs.vesting =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     0 + invs.newoptions[r,g]
                     - invs.optionsvested[r,g])
 
     invs.buildable =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     existing.options[r,g] + invs.optionsvested[r,g]
                     - invs.newbuilds[r,g])
 
     invs.building =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     0 + invs.newbuilds[r,g]
                     - invs.buildsfinished[r,g])
 
     invs.dispatchable =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     existing.builds[r,g] + invs.buildsfinished[r,g]
                     - invs.newretirements[r,g])
 
     invs.retired =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     0 + invs.newretirements[r,g])
 
 end
@@ -191,33 +199,29 @@ function setup_unitstates!(
     parentinvs::ResourceInvestments{R,G}
 ) where {R, G}
 
-    regions = 1:R
-    gens = 1:G
-
     invs.vesting =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     parentinvs.vesting[r,g] + invs.newoptions[r,g]
                     - invs.optionsvested[r,g])
 
     invs.buildable =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     parentinvs.buildable[r,g] + invs.optionsvested[r,g]
                     - invs.newbuilds[r,g])
 
     invs.building =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     parentinvs.building + invs.newbuilds[r,g]
                     - invs.buildsfinished[r,g])
 
     invs.dispatchable =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     parentinvs.dispatchable[r,g] + invs.buildsfinished[r,g]
                     - invs.newretirements[r,g])
 
     invs.retired =
-        @expression(m, [r in regions, g in gens],
+        @expression(m, [r in 1:R, g in 1:G],
                     parentinvs.retired[r,g] + invs.newretirements[r,g])
-
 
 end
 
@@ -228,6 +232,19 @@ struct Investments{R,G1,G2,G3}
     thermalgens::ResourceInvestments{R,G1}
     variablegens::ResourceInvestments{R,G2}
     storages::ResourceInvestments{R,G3}
+end
+
+function loadinvestments(techs::Technologies, resourcepath::String)
+
+    thermal =
+        ResourceInvestments(techs.thermal, joinpath(resourcepath, "thermal"))
+    variable =
+        ResourceInvestments(techs.variable, joinpath(resourcepath, "variable"))
+    storage =
+        ResourceInvestments(techs.storage, joinpath(resourcepath, "storage"))
+
+    return Investments(thermal, variable, storage)
+
 end
 
 welfare(x::Investments) =
