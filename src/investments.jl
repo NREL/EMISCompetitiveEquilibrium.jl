@@ -22,12 +22,12 @@ mutable struct ResourceInvestments{R,G}
 
     # Capital costs are considered sunk and so modeled as one-time expenses,
     # although in terms of cash flow they may actually be amortized over time
-    optioncost::Vector{Float64}     # ($/unit, g)
-    buildcost::Vector{Float64}
-    retirementcost::Vector{Float64}
+    optioncost::Matrix{Float64}     # ($/unit, r x g)
+    buildcost::Matrix{Float64}
+    retirementcost::Matrix{Float64}
 
-    optionleadtime::Vector{Int}     # investment periods, g
-    buildleadtime::Vector{Int}
+    optionleadtime::Matrix{Int}     # investment periods, r x g
+    buildleadtime::Matrix{Int}
 
     newoptionslimit::Matrix{Int} # investment periods, r x g
     newbuildslimit::Matrix{Int}
@@ -61,20 +61,22 @@ mutable struct ResourceInvestments{R,G}
     maxnewbuilds_physicallimit::Matrix{LessThanConstraintRef}
 
     function ResourceInvestments{}(
-        optioncost, buildcost, retirementcost, optionleadtime, buildleadtime,
-        maxnewoptions, maxnewbuilds)
+        optioncost::Matrix{Float64}, buildcost::Matrix{Float64},
+        retirementcost::Matrix{Float64},
+        optionleadtime::Matrix{Int}, buildleadtime::Matrix{Int},
+        maxnewoptions::Matrix{Int}, maxnewbuilds::Matrix{Int})
 
         R, G = size(maxnewoptions)
+        @assert size(maxnewbuilds) == (R,G)
 
-        @assert length(optioncost) == G
-        @assert length(buildcost) == G
-        @assert length(retirementcost) == G
+        @assert size(optioncost) == (R,G)
+        @assert size(buildcost) == (R,G)
+        @assert size(retirementcost) == (R,G)
 
-        @assert length(optionleadtime) == G
-        @assert length(buildleadtime) == G
+        @assert size(optionleadtime) == (R,G)
+        @assert size(buildleadtime) == (R,G)
 
         @assert size(maxnewoptions) == (R,G)
-        @assert size(maxnewbuilds) == (R,G)
 
         new{R,G}(optioncost, buildcost, retirementcost,
                  optionleadtime, buildleadtime,
@@ -84,17 +86,48 @@ mutable struct ResourceInvestments{R,G}
 
 end
 
-function ResourceInvestments(classes::Vector{String}, resourcetypefolder::String)
+function ResourceInvestments(
+    tech::AbstractTechnology{G},
+    regionlookup::Dict{String,Int},
+    resourcetypefolder::String
+) where G
 
-    data = DataFrame!(CSV.File(joinpath(resourcetypefolder, "parameters.csv")))
+    R = length(regionlookup)
+    techdata = DataFrame!(CSV.File(joinpath(resourcetypefolder, "parameters.csv"),
+                                   types=scenarios_resource_param_types))
+    genlookup = Dict(zip(tech.name, 1:G))
 
-    data.names == classes ||
-       error("Scenario-level resource data should match technical data")
+    optioncost = zeros(Float64, R, G)
+    buildcost = zeros(Float64, R, G)
+    retirementcost = zeros(Float64, R, G)
+
+    optionleadtime = zeros(Int, R, G)
+    buildleadtime = zeros(Int, R, G)
+
+    newoptionslimit = zeros(Int, R, G)
+    newbuildslimit = zeros(Int, R, G)
+
+    for row in eachrow(techdata)
+
+        region_idx = regionlookup[row.region]
+        gen_idx = genlookup[row.class]
+
+        optioncost[region_idx, gen_idx] = row.optioncost
+        buildcost[region_idx, gen_idx] = row.buildcost
+        retirementcost[region_idx, gen_idx] = row.retirementcost
+
+        optionleadtime[region_idx, gen_idx] = row.optionleadtime
+        buildleadtime[region_idx, gen_idx] = row.buildleadtime
+
+        newoptionslimit[region_idx, gen_idx] = row.newoptionslimit
+        newbuildslimit[region_idx, gen_idx] = row.newbuildslimit
+
+    end
 
     return ResourceInvestments(
-        data.optioncost, data.buildcost, data.retirementcost,
-        data.optionleadtime, data.buildleadtime,
-        data.maxnewoptions, data.maxnewbuilds)
+        optioncost, buildcost, retirementcost,
+        optionleadtime, buildleadtime,
+        newoptionslimit, newbuildslimit)
 
 end
 
@@ -131,9 +164,9 @@ function setup!(
 
     invs.investmentcosts =
         @expression(m, [r in 1:R, g in 1:G],
-                    invs.optioncost[g] * invs.newoptions[r,g] +
-                    invs.buildcost[g] * invs.newbuilds[r,g] +
-                    invs.retirementcost[g] * invs.newretirements[r,g])
+                    invs.optioncost[r,g] * invs.newoptions[r,g] +
+                    invs.buildcost[r,g] * invs.newbuilds[r,g] +
+                    invs.retirementcost[r,g] * invs.newretirements[r,g])
 
     # Constraints
 
@@ -234,14 +267,18 @@ struct Investments{R,G1,G2,G3}
     storages::ResourceInvestments{R,G3}
 end
 
-function loadinvestments(techs::Technologies, resourcepath::String)
+function loadinvestments(
+    techs::Technologies, regions::Dict{String,Int}, resourcepath::String)
 
     thermal =
-        ResourceInvestments(techs.thermal, joinpath(resourcepath, "thermal"))
+        ResourceInvestments(techs.thermal, regions,
+                            joinpath(resourcepath, "thermal"))
     variable =
-        ResourceInvestments(techs.variable, joinpath(resourcepath, "variable"))
+        ResourceInvestments(techs.variable, regions,
+                            joinpath(resourcepath, "variable"))
     storage =
-        ResourceInvestments(techs.storage, joinpath(resourcepath, "storage"))
+        ResourceInvestments(techs.storage, regions,
+                            joinpath(resourcepath, "storage"))
 
     return Investments(thermal, variable, storage)
 

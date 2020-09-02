@@ -2,10 +2,10 @@ mutable struct ThermalGeneratorOperations{R,G,T,P}
 
     # Parameters
 
-    fixedcost::Vector{Float64}    # $/unit/investment period, g
-    variablecost::Vector{Float64} # $/MW/hour, g
-    startupcost::Vector{Float64}  # $/startup/unit, g
-    shutdowncost::Vector{Float64} # $/shutdown/unit, g
+    fixedcost::Matrix{Float64}    # $/unit/investment period, g
+    variablecost::Matrix{Float64} # $/MW/hour, g
+    startupcost::Matrix{Float64}  # $/startup/unit, g
+    shutdowncost::Matrix{Float64} # $/shutdown/unit, g
 
     # Variables
 
@@ -51,17 +51,17 @@ mutable struct ThermalGeneratorOperations{R,G,T,P}
     maxrampdown::Array{GreaterThanConstraintRef,4} # (r x g x t x p)
     maxrampup::Array{LessThanConstraintRef,4}
 
-    function ThermalGeneratorOperations{R,T,P}(
-        fixedcost::Vector{Float64},
-        variablecost::Vector{Float64},
-        startupcost::Vector{Float64},
-        shutdowncost::Vector{Float64}
-    ) where {R,T,P}
+    function ThermalGeneratorOperations{T,P}(
+        fixedcost::Matrix{Float64},
+        variablecost::Matrix{Float64},
+        startupcost::Matrix{Float64},
+        shutdowncost::Matrix{Float64}
+    ) where {T,P}
 
-        G = length(fixedcost)
-        @assert length(variablecost) == G
-        @assert length(startupcost) == G
-        @assert length(shutdowncost) == G
+        R, G = size(fixedcost)
+        @assert size(variablecost) == (R, G)
+        @assert size(startupcost) == (R, G)
+        @assert size(shutdowncost) == (R, G)
 
         new{R,G,T,P}(fixedcost, variablecost, startupcost, shutdowncost)
 
@@ -69,27 +69,34 @@ mutable struct ThermalGeneratorOperations{R,G,T,P}
 
 end
 
-function ThermalGeneratorOperations{R,T,P}(
-    thermalgens::ThermalGenerators{G}, thermalpath::String
-) where {R,G,T,P}
+function ThermalGeneratorOperations{T,P}(
+    thermalgens::ThermalGenerators{G}, regionlookup::Dict{String,Int},
+    thermalpath::String
+) where {G,T,P}
 
-    thermaldata = DataFrame!(CSV.File(joinpath(thermalpath, "parameters.csv")))
+    R = length(regionlookup)
+    thermaldata = DataFrame!(CSV.File(joinpath(thermalpath, "parameters.csv"),
+                                      types=scenarios_resource_param_types))
 
-    thermallookup = Dict(zip(thermalgens.name, 1:R))
-    fixedcost = zeros(Float64, G)
-    variablecost = zeros(Float64, G)
-    startupcost = zeros(Float64, G)
-    shutdowncost = zeros(Float64, G)
+    thermallookup = Dict(zip(thermalgens.name, 1:G))
+    fixedcost = zeros(Float64, R, G)
+    variablecost = zeros(Float64, R, G)
+    startupcost = zeros(Float64, R, G)
+    shutdowncost = zeros(Float64, R, G)
 
     for row in eachrow(thermaldata)
+
         gen_idx = thermallookup[row.class]
-        fixedcost[gen_idx] = row.fixedcost
-        variablecost[gen_idx] = row.variablecost
-        startupcost[gen_idx] = row.startupcost
-        shutdowncost[gen_idx] = row.shutdowncost
+        region_idx = regionlookup[row.region]
+
+        fixedcost[region_idx, gen_idx] = row.fixedcost
+        variablecost[region_idx, gen_idx] = row.variablecost
+        startupcost[region_idx, gen_idx] = row.startupcost
+        shutdowncost[region_idx, gen_idx] = row.shutdowncost
+
     end
 
-    return ThermalGeneratorOperations{R,T,P}(
+    return ThermalGeneratorOperations{T,P}(
         fixedcost, variablecost, startupcost, shutdowncost)
 
 end

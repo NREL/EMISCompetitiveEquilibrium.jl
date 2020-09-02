@@ -19,15 +19,15 @@ function loadoperations(
     R = length(regions)
     P = length(periods)
 
-    thermal = ThermalGeneratorOperations{R,T,P}(
-        techs.thermal, joinpath(resourcepath, "thermal"))
+    thermal = ThermalGeneratorOperations{T,P}(
+        techs.thermal, regions, joinpath(resourcepath, "thermal"))
 
-    variable = VariableGeneratorOperations{R,T,P}(
+    variable = VariableGeneratorOperations{T}(
         techs.variable, regions, periods,
         joinpath(resourcepath, "variable"))
 
-    storages = StorageOperations{R,T,P}(
-        techs.storage, joinpath(resourcepath, "storage"))
+    storages = StorageOperations{T,P}(
+        techs.storage, regions, joinpath(resourcepath, "storage"))
 
     transmission = TransmissionOperations{T,P}(
         techs.interface, joinpath(resourcepath, "transmission"))

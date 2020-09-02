@@ -5,6 +5,10 @@ using Test
 @testset "Toy Problem" begin
 
     R = 3
+    G1 = 1
+    G2 = 0
+    G3 = 0
+    I = 3
     T = 12
     P = 4
 
@@ -25,20 +29,20 @@ using Test
 
     # Initial Conditions
 
-    thermalstart = InitialInvestments(zeros(Int, 3, 1), zeros(Int, 3, 1))
-    emptystart = InitialInvestments(zeros(Int, 3, 0), zeros(Int, 3, 0))
-
+    thermalstart = InitialInvestments(zeros(Int, R, G1), zeros(Int, R, G1))
+    emptystart = InitialInvestments(zeros(Int, R, 0), zeros(Int, R, 0))
     initconds = InitialConditions(thermalstart, emptystart, emptystart)
 
 
     # Investment Context
 
     inv_thermal = ResourceInvestments(
-        [1000.], [10000.], [0.], [1], [1], fill(0, 3, 1), fill(0, 3, 1))
+        fill(1000., R, G1), fill(10000., R, G1), fill(0., R, G1),
+        fill(1, R, G1), fill(1, R, G1), fill(0, R, G1), fill(0, R, G1))
 
     inv_empty = ResourceInvestments(
-        Float64[], Float64[], Float64[], Int[], Int[],
-        zeros(Int, 3, 0), zeros(Int, 3, 0))
+        zeros(Float64,R,0), zeros(Float64,R,0), zeros(Float64,R,0),
+        zeros(Int,R,0), zeros(Int,R,0), zeros(Int, R, 0), zeros(Int, R, 0))
 
     invs = Investments(inv_thermal, inv_empty, inv_empty)
 
@@ -46,14 +50,16 @@ using Test
     # Operating Context
 
     ops_thermal =
-        ThermalGeneratorOperations{R,T,P}([200.], [4.], [2.], [2.])
+        ThermalGeneratorOperations{T,P}(fill(200., R, G1), fill(4., R, G1),
+                                        fill(2., R, G1), fill(2., R, G1))
 
     ops_variable =
         VariableGeneratorOperations(
-            Float64[], Float64[], Array{Float64}(undef, R, 0, T, P))
+            zeros(Float64, R, G2), zeros(Float64, R, G2),
+            zeros(Float64, R, G2, T, P))
 
     ops_storage =
-        StorageOperations{R,T,P}(Float64[], Float64[])
+        StorageOperations{T,P}(zeros(Float64, R, G3), zeros(Float64, R, G3))
 
     ops_transmission =
         TransmissionOperations{R,T,P}([10., 10, 10])
@@ -70,9 +76,9 @@ using Test
     reserve = 0.1 .* load
 
     capacity = CapacityMarket(1000., 40., -100.)
-    energy = EnergyMarket(load, 1e5)
-    raisereserve = RaiseReserveMarket(reserve, 4e4)
-    lowerreserve = LowerReserveMarket(reserve, 4e4)
+    energy = EnergyMarket(load, fill(1e5, R))
+    raisereserve = RaiseReserveMarket(reserve, fill(4e4, R))
+    lowerreserve = LowerReserveMarket(reserve, fill(4e4, R))
 
     markets = Markets(capacity, energy, raisereserve, lowerreserve)
 

@@ -1,4 +1,6 @@
-struct ThermalGenerators{G1}
+abstract type AbstractTechnology{G} end
+
+struct ThermalGenerators{G1} <: AbstractTechnology{G1}
 
     name::Vector{String}             # g
     owner::Vector{String}            # g
@@ -21,7 +23,7 @@ struct ThermalGenerators{G1}
 
 end
 
-struct VariableGenerators{G2}
+struct VariableGenerators{G2} <: AbstractTechnology{G2}
 
     name::Vector{String}    # g
     owner::Vector{String}   # g
@@ -36,7 +38,7 @@ struct VariableGenerators{G2}
 
 end
 
-struct StorageDevices{G3}
+struct StorageDevices{G3} <: AbstractTechnology{G3}
 
     name::Vector{String}  # g
     owner::Vector{String} # g
@@ -59,7 +61,7 @@ struct StorageDevices{G3}
 
 end
 
-struct Interfaces{I,R}
+struct Interfaces{I,R} <: AbstractTechnology{I}
 
     name::Vector{String}
     regions::Vector{Tuple{Int,Int}}

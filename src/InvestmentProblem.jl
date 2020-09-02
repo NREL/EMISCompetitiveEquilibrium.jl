@@ -51,7 +51,8 @@ function InvestmentProblem(
 )
 
     # Load representative periods
-    perioddata = DataFrame!(CSV.File(joinpath(folder, "periods.csv")))
+    perioddata = DataFrame!(CSV.File(joinpath(folder, "periods.csv"),
+                                     types=period_types))
     n_periods = length(perioddata.name)
     periodlookup = Dict(zip(perioddata.name, 1:n_periods))
 
@@ -106,8 +107,7 @@ function InvestmentProblem(
 
     initialdata =
         DataFrame!(CSV.File(joinpath(folder, "initialconditions.csv"),
-                            types=Dict(:class=>String,:region=>String,
-                                       :built=>Int,:optioned=>Int)))
+                            types=initialcondition_types))
     initialdata.region_idx = getindex.(Ref(regionlookup), initialdata.region)
 
     thermalstarts = InitialInvestments(
@@ -152,9 +152,7 @@ function InvestmentProblem(
 
     scenariospath = joinpath(folder, "scenarios")
     scenariosdata = DataFrame!(CSV.File(joinpath(scenariospath, "tree.csv"),
-                                        types=Dict(:name=>String,
-                                                   :parent=>String,
-                                                   :probability=>Float64)))
+                                        types=scenarios_tree_types))
 
     root_idx = findfirst(ismissing, scenariosdata.parent)
     root_scenario = scenariosdata.name[root_idx]

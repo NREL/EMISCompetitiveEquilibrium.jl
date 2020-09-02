@@ -1,8 +1,8 @@
 mutable struct RaiseReserveMarket{R,T,P} # Assumes completely inelastic demand
 
     # Parameters
-    demand::Array{Float64,3} # (MW, r x t x p)
-    pricecap::Float64       # $/MW
+    demand::Array{Float64,3}  # (MW, r x t x p)
+    pricecap::Vector{Float64} # ($/MW, r)
 
     # Variables
     shortfall::Array{VariableRef,3} # Raise reserve shortfall (MW, r x t x p)
@@ -16,10 +16,15 @@ mutable struct RaiseReserveMarket{R,T,P} # Assumes completely inelastic demand
     marketclearing::Array{EqualToConstraintRef,3} # Reserve balance
 
     function RaiseReserveMarket{}(demand, pricecap)
-        @assert all(x -> x >= 0, demand)
-        @assert pricecap >= 0
+
         R, T, P = size(demand)
+
+        @assert all(x -> x >= 0, demand)
+        @assert all(x -> x >= 0, pricecap)
+        @assert length(pricecap) == R
+
         new{R,T, P}(demand, pricecap)
+
     end
 
 end
@@ -38,7 +43,7 @@ function setup!(
 
     market.shortfallcost =
         @expression(m, [r in 1:R, p in 1:P],
-                    sum(market.shortfall[r,t,p] * market.pricecap
+                    sum(market.shortfall[r,t,p] * market.pricecap[r]
                         for t in 1:T))
 
     market.totalshortfallcost =

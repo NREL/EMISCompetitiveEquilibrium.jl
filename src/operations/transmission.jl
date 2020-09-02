@@ -35,7 +35,8 @@ function TransmissionOperations{T,P}(
 ) where {I,R,T,P}
 
     transmissiondata =
-        DataFrame!(CSV.File(joinpath(transmissionpath, "parameters.csv")))
+        DataFrame!(CSV.File(joinpath(transmissionpath, "parameters.csv"),
+                            types=scenarios_transmission_param_types))
 
     interfacelookup = Dict(zip(interfaces.name, 1:I))
     limits = zeros(Float64, I)

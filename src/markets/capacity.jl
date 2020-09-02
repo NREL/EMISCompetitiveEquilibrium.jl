@@ -21,7 +21,8 @@ end
 
 function CapacityMarket(capacitypath::String)
 
-    capacitydata = DataFrame!(CSV.File(joinpath(capacitypath, "rules.csv")))
+    capacitydata = DataFrame!(CSV.File(joinpath(capacitypath, "rules.csv"),
+                                       types=scenarios_capacitymarket_param_types))
 
     targetprice = first(capacitydata.targetprice)
     targetcapacity = first(capacitydata.targetcapacity)

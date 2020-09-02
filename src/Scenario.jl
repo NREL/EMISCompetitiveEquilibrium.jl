@@ -73,7 +73,7 @@ function loadscenario(
     scenariofolder::String)
 
     resourcepath = joinpath(scenariofolder, "resources")
-    investments = loadinvestments(techs, resourcepath)
+    investments = loadinvestments(techs, regions, resourcepath)
     operations = loadoperations(
         techs, regions, periods, n_timesteps, resourcepath)
     markets = loadmarkets(
@@ -125,7 +125,7 @@ function maturing(
     while !isnothing(historical)
 
         invs = getfield(historical.investments, invtype)
-        if getfield(invs, leadtime)[g] == stepsback
+        if getfield(invs, leadtime)[r,g] == stepsback
             count += getfield(invs, action)[r,g]
         end
 

@@ -2,8 +2,8 @@ mutable struct StorageOperations{R,G,T,P}
 
     # Parameters
 
-    fixedcost::Vector{Float64}      # $/unit/investment period, g
-    variablecost::Vector{Float64}   # $/MW/hour, g
+    fixedcost::Matrix{Float64}      # $/unit/investment period, g
+    variablecost::Matrix{Float64}   # $/MW/hour, g
 
     # Variables
 
@@ -38,12 +38,12 @@ mutable struct StorageOperations{R,G,T,P}
     minenergy::Array{GreaterThanConstraintRef,4}   # (r x g x t-1 x p)
     maxenergy::Array{LessThanConstraintRef,4}   # (r x g x t-1 x p)
 
-    function StorageOperations{R,T,P}(
-        fixedcost::Vector{Float64}, variablecost::Vector{Float64}
-    ) where {R,T,P}
+    function StorageOperations{T,P}(
+        fixedcost::Matrix{Float64}, variablecost::Matrix{Float64}
+    ) where {T,P}
 
-        G = length(fixedcost)
-        @assert length(variablecost) == G
+        R, G = size(fixedcost)
+        @assert size(variablecost) == (R, G)
 
         new{R,G,T,P}(fixedcost, variablecost)
 
@@ -51,23 +51,27 @@ mutable struct StorageOperations{R,G,T,P}
 
 end
 
-function StorageOperations{R,T,P}(
-    storages::StorageDevices{G}, storagepath::String
-) where {G,R,T,P}
+function StorageOperations{T,P}(
+    storages::StorageDevices{G},
+    regionlookup::Dict{String,Int}, storagepath::String
+) where {G,T,P}
 
-    storagedata = DataFrame!(CSV.File(joinpath(storagepath, "parameters.csv")))
+    R = length(regionlookup)
+    storagedata = DataFrame!(CSV.File(joinpath(storagepath, "parameters.csv"),
+                                      types=scenarios_resource_param_types))
 
-    storagelookup = Dict(zip(storages, 1:R))
-    fixedcost = zeros(Float64, G)
-    variablecost = zeros(Float64, G)
+    storagelookup = Dict(zip(storages.name, 1:G))
+    fixedcost = zeros(Float64, R, G)
+    variablecost = zeros(Float64, R, G)
 
     for row in eachrow(storagedata)
         stor_idx = storagelookup[row.class]
-        fixedcost[stor_idx] = row.fixedcost
-        variablecost[stor_idx] = row.variablecost
+        region_idx = regionlookup[row.region]
+        fixedcost[region_idx, stor_idx] = row.fixedcost
+        variablecost[region_idx, stor_idx] = row.variablecost
     end
 
-    return StorageOperations{R,T,P}(fixedcost, variablecost)
+    return StorageOperations{T,P}(fixedcost, variablecost)
 
 end
 
@@ -90,12 +94,12 @@ function setup!(
 
     ops.fixedcosts =
         @expression(m, [r in 1:R, g in 1:G],
-                    ops.fixedcost[g] * invs.dispatchable[r,g])
+                    ops.fixedcost[r,g] * invs.dispatchable[r,g])
 
     ops.variablecosts =
         @expression(m, [r in 1:R, g in 1:G, p in 1:P],
-                    sum(ops.variablecost[g] *
-                        (ops.charge[r,g,t,p] + ops.discharge[r,g,t,p])
+                    sum(ops.variablecost[r,g] *
+                        (ops.energycharge[r,g,t,p] + ops.energydischarge[r,g,t,p])
                         for t in 1:T))
 
     ops.operatingcosts =
@@ -106,7 +110,7 @@ function setup!(
 
     ops.ucap =
         @expression(m, [r in 1:R], G > 0 ? sum(
-            invs.dispatchable[r,g] * units.maxgen[g] * units.capacitycredit[g]
+            invs.dispatchable[r,g] * units.maxdischarge[g] * units.capacitycredit[g]
         for g in 1:G) : 0)
 
 
@@ -125,7 +129,7 @@ function setup!(
 
     ops.stateofcharge =
         @expression(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
-                    sum(ops.energycharge[r,g,i,p] - ops.energydischarge[r,g,i,p]
+                    0 + sum(ops.energycharge[r,g,i,p] - ops.energydischarge[r,g,i,p]
                         for i in 1:(t-1)))
 
     # Constraints
@@ -138,7 +142,7 @@ function setup!(
     ops.maxdischarge_power =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.energydischarge[r,g,t,p] <=
-                    invs.dispatchable[r,g] * units.maxgen[g])
+                    invs.dispatchable[r,g] * units.maxdischarge[g])
 
     ops.maxdischarge_energy =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
@@ -151,7 +155,7 @@ function setup!(
     ops.maxcharge_power =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.energycharge[r,g,t,p] <=
-                    invs.dispatchable[r,g] * units.maxgen[g])
+                    invs.dispatchable[r,g] * units.maxcharge[g])
 
     ops.maxcharge_energy =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
@@ -168,8 +172,8 @@ function setup!(
                     ops.stateofcharge[r,g,t,p] <=
                     invs.dispatchable[r,g] * units.maxenergy[g])
 
-    # TODO: Periodic SoC boundary conditions?
+    # TODO: Periodic SoC boundary conditions
 
 end
 
-welfare(::StorageOperations) = 0.
+welfare(x::StorageOperations) = -sum(x.operatingcosts)

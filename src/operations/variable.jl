@@ -2,8 +2,8 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
 
     # Parameters
 
-    fixedcost::Vector{Float64}      # $/unit/investment period, g
-    variablecost::Vector{Float64}   # $/MW/hour, g
+    fixedcost::Matrix{Float64}      # $/unit/investment period, g
+    variablecost::Matrix{Float64}   # $/MW/hour, g
     capacityfactor::Array{Float64,4} # MW, r x g x t x p
 
     # Variables
@@ -15,7 +15,7 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
     # Expressions
 
     fixedcosts::Matrix{ExpressionRef} # ($, r x g)
-    variablecosts::Array{VariableRef,3} # ($, r x g x p)
+    variablecosts::Array{ExpressionRef,3} # ($, r x g x p)
     operatingcosts::Matrix{ExpressionRef} # Operating costs ($, r x g)
 
     ucap::Vector{ExpressionRef} # (MW, r)
@@ -33,15 +33,15 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
     maxraisereserve::Array{LessThanConstraintRef,4}
 
     function VariableGeneratorOperations{}(
-        fixedcost::Vector{Float64},
-        variablecost::Vector{Float64},
+        fixedcost::Matrix{Float64},
+        variablecost::Matrix{Float64},
         capacityfactor::Array{Float64,4}
     )
 
         R, G, T, P = size(capacityfactor)
 
-        @assert length(fixedcost) == G
-        @assert length(variablecost) == G
+        @assert size(fixedcost) == (R, G)
+        @assert size(variablecost) == (R, G)
 
         new{R,G,T,P}(fixedcost, variablecost, capacityfactor)
 
@@ -49,16 +49,29 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
 
 end
 
-function VariableGeneratorOperations{R,T,P}(
+function VariableGeneratorOperations{T}(
     variablegens::VariableGenerators{G},
-    regions::Dict{String,Int}, periods::Dict{String,Int},
+    regionlookup::Dict{String,Int}, periodlookup::Dict{String,Int},
     variablepath::String
-) where {R,G,T,P}
+) where {G,T}
 
+    R = length(regionlookup)
+    P = length(periodlookup)
     variablelookup = Dict(zip(variablegens.name, 1:G))
-    fixedcost = zeros(Float64, R)
-    variablecost = zeros(Float64, R)
+
+    fixedcost = zeros(Float64, R, G)
+    variablecost = zeros(Float64, R, G)
     capacityfactor = zeros(Float64, R, G, T, P)
+
+    variabledata = DataFrame!(CSV.File(joinpath(variablepath, "parameters.csv"),
+                                       types=scenarios_resource_param_types))
+
+    for row in eachrow(variabledata)
+        gen_idx = variablelookup[row.class]
+        region_idx = regionlookup[row.region]
+        fixedcost[region_idx, gen_idx] = row.fixedcost
+        variablecost[region_idx, gen_idx] = row.variablecost
+    end
 
     availabilitypath = joinpath(variablepath, "availability")
 
@@ -74,27 +87,19 @@ function VariableGeneratorOperations{R,T,P}(
         availabilitydata = DataFrame!(CSV.File(
             joinpath(availabilitypath, classfile)))
 
-        availabilitydata = stack(availabilitydata, Not(:period,:timestep),
+        availabilitydata = stack(availabilitydata, Not([:period,:timestep]),
               variable_name=:region, value_name=:availability)
 
         for row in eachrow(availabilitydata)
 
-            r_idx = row.region
+            r_idx = regionlookup[row.region]
             t = row.timestep
-            p_idx = row.region
+            p_idx = periodlookup[row.period]
 
             capacityfactor[r_idx,gen_idx,t,p_idx] = row.availability / gen_max
 
         end
 
-    end
-
-    variabledata = DataFrame!(CSV.File(joinpath(variablepath, "parameters.csv")))
-
-    for row in eachrow(variabledata)
-        gen_idx = variablelookup[row.class]
-        fixedcost[gen_idx] = row.fixedcost
-        variablecost[gen_idx] = row.variablecost
     end
 
     return VariableGeneratorOperations(fixedcost, variablecost, capacityfactor)
@@ -119,11 +124,11 @@ function setup!(
 
     ops.fixedcosts =
         @expression(m, [r in 1:R, g in 1:G],
-                    ops.fixedcost[g] * invs.dispatchable[r,g])
+                    ops.fixedcost[r,g] * invs.dispatchable[r,g])
 
     ops.variablecosts =
         @expression(m, [r in 1:R, g in 1:G, p in 1:P],
-                    sum(ops.variablecost[g] * ops.energydispatch[r,g,t,p]
+                    sum(ops.variablecost[r,g] * ops.energydispatch[r,g,t,p]
                         for t in 1:T))
 
     ops.operatingcosts =
@@ -156,7 +161,7 @@ function setup!(
     ops.maxgeneration =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.energydispatch[r,g,t,p] + ops.raisereserve[r,g,t,p] <=
-                    invs.dispatchable[r,g,t,p] * units.capacityfactor[r,g,t,p] * units.maxgen[g])
+                    invs.dispatchable[r,g] * ops.capacityfactor[r,g,t,p] * units.maxgen[g])
 
     ops.minlowerreserve =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
@@ -165,7 +170,7 @@ function setup!(
     ops.maxlowerreserve = # TODO: Is this redundant?
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.lowerreserve[r,g,t,p] <=
-                    invs.dispatchable[r,g,t,p] * units.maxgen[g])
+                    invs.dispatchable[r,g] * units.maxgen[g])
 
     ops.minraisereserve =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
@@ -174,7 +179,7 @@ function setup!(
     ops.maxraisereserve = # TODO: Is this redundant?
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.raisereserve[r,g,t,p] <=
-                    invs.dispatchable[r,g,t,p] * units.maxgen[g])
+                    invs.dispatchable[r,g] * units.maxgen[g])
 
 end
 

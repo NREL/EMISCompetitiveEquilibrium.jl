@@ -14,19 +14,19 @@ function loadmarkets(
     regions::Dict{String,Int}, periods::Dict{String,Int}, n_timesteps::Int,
     resourcepath::String
 )
-    capacity = CapacityMarket(join(resourcepath, "capacity"))
+    capacity = CapacityMarket(joinpath(resourcepath, "capacity"))
 
     energy = loadmarket(
         EnergyMarket, regions, periods, n_timesteps,
-        join(resourcepath, "energy"))
+        joinpath(resourcepath, "energy"))
 
     raisereserve = loadmarket(
         RaiseReserveMarket, regions, periods, n_timesteps,
-        join(resourcepath, "raisereserve"))
+        joinpath(resourcepath, "raisereserve"))
 
     lowerreserve = loadmarket(
         LowerReserveMarket, regions, periods, n_timesteps,
-        join(resourcepath, "lowerreserve"))
+        joinpath(resourcepath, "lowerreserve"))
 
     return Markets(capacity, energy, raisereserve, lowerreserve)
 
@@ -37,16 +37,22 @@ function loadmarket(
     marketpath::String
 )
 
-    rulesdata = DataFrame!(CSV.File(joinpath(marketpath, "rules.csv")))
-    demanddata = DataFrame!(CSV.File(joinpath(marketpath, "demand.csv")))
-
-    demanddata = stack(energydemanddata, Not([:period, :timestep]),
-                       variable_name=:region, value_name=:demand)
-
     R = length(regions)
     P = length(periods)
 
+    rulesdata = DataFrame!(CSV.File(joinpath(marketpath, "rules.csv"),
+                                    types=scenarios_market_param_types))
+    demanddata = DataFrame!(CSV.File(joinpath(marketpath, "demand.csv")))
+    demanddata = stack(demanddata, Not([:period, :timestep]),
+                       variable_name=:region, value_name=:demand)
+
+    pricecap = zeros(Float64, R)
     demand = zeros(Float64, R, T, P)
+
+    for row in eachrow(rulesdata)
+        r_idx = regions[row.region]
+        pricecap[r_idx] = row.pricecap
+    end
 
     for row in eachrow(demanddata)
         r_idx = regions[row.region]
@@ -55,9 +61,7 @@ function loadmarket(
         demand[r_idx,t,p_idx] = row.demand
     end
 
-    pricecap = first(rulesdata.pricecap) # TODO: Fix this, should be by region
-
-    return market{R,T,P}(demand, pricecap)
+    return market(demand, pricecap)
 
 end
 
