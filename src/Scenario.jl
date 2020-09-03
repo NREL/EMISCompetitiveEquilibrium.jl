@@ -1,5 +1,7 @@
-struct Scenario{R,G1,G2,G3,I,T,P,IP<:AbstractProblem{R,G1,G2,G3,I,T,P}} <: AbstractScenario
+struct Scenario{R,G1,G2,G3,I,T,P,IP<:AbstractProblem{R,G1,G2,G3,I,T,P}
+} <: AbstractScenario
 
+    name::String
     probability::Float64
     parent::Union{Scenario{R,G1,G2,G3,I,T,P,IP},Nothing}
     children::Vector{Scenario{R,G1,G2,G3,I,T,P,IP}}
@@ -12,6 +14,7 @@ struct Scenario{R,G1,G2,G3,I,T,P,IP<:AbstractProblem{R,G1,G2,G3,I,T,P}} <: Abstr
     periodweights::Vector{Float64}
 
     function Scenario{}(
+        name::String,
         probability::Float64,
         parentscenario::Union{Scenario{R,G1,G2,G3,I,T,P,IP},Nothing},
         childscenarios::Vector{Scenario{R,G1,G2,G3,I,T,P,IP}},
@@ -26,15 +29,16 @@ struct Scenario{R,G1,G2,G3,I,T,P,IP<:AbstractProblem{R,G1,G2,G3,I,T,P}} <: Abstr
         @assert 0 < probability <= 1
 
         new{R,G1,G2,G3,I,T,P,IP}(
-            probability, parentscenario, childscenarios, investmentproblem,
-            investments, operations, markets, periodweights)
+            name, probability, parentscenario, childscenarios,
+            investmentproblem, investments, operations, markets, periodweights)
 
     end
 
 end
 
 function Scenario(
-    parent::Scenario{R,G1,G2,G3,I,T,P,IP}, p::Float64,
+    parent::Scenario{R,G1,G2,G3,I,T,P,IP},
+    name::String, p::Float64,
     investments::Investments{R,G1,G2,G3},
     operations::Operations{R,G1,G2,G3,I,T,P},
     markets::Markets{R,T,P},
@@ -42,8 +46,8 @@ function Scenario(
 ) where {R,G1,G2,G3,I,T,P,IP}
 
     s = Scenario(
-        p, parent, Scenario{R,G1,G2,G3,I,T,P,IP}[], parent.investmentproblem,
-        investments, operations, markets, weights)
+        name, p, parent, Scenario{R,G1,G2,G3,I,T,P,IP}[],
+        parent.investmentproblem, investments, operations, markets, weights)
 
     return setup!(s)
 
@@ -51,13 +55,14 @@ end
 
 function Scenario(
     invprob::IP,
+    name::String,
     investments::Investments{R,G1,G2,G3},
     operations::Operations{R,G1,G2,G3,I,T,P},
     markets::Markets{R,T,P},
     weights::Vector{Float64}
 ) where {R,G1,G2,G3,I,T,P,IP<:AbstractProblem{R,G1,G2,G3,I,T,P}}
 
-    s = Scenario(1.0, nothing, Scenario{R,G1,G2,G3,I,T,P,IP}[], invprob,
+    s = Scenario(name, 1.0, nothing, Scenario{R,G1,G2,G3,I,T,P,IP}[], invprob,
                  investments, operations, markets, weights)
 
     return setup!(s)
@@ -94,14 +99,14 @@ function setup!(s::Scenario)
     weights = s.periodweights
 
     # Investments
-    setup!(s, :thermalgens, m, ip.initialconditions.thermalgens)
-    setup!(s, :variablegens, m, ip.initialconditions.variablegens)
-    setup!(s, :storages, m, ip.initialconditions.storages)
+    setup!(s, :thermal, m, ip.initialconditions.thermal)
+    setup!(s, :variable, m, ip.initialconditions.variable)
+    setup!(s, :storage, m, ip.initialconditions.storage)
 
     # Operations
-    setup!(ops.thermalgens,  ip.technologies.thermal,   m, invs.thermalgens, weights)
-    setup!(ops.variablegens, ip.technologies.variable,  m, invs.variablegens, weights)
-    setup!(ops.storages,     ip.technologies.storage,   m, invs.storages, weights)
+    setup!(ops.thermal,  ip.technologies.thermal,   m, invs.thermal, weights)
+    setup!(ops.variable, ip.technologies.variable,  m, invs.variable, weights)
+    setup!(ops.storage,     ip.technologies.storage,   m, invs.storage, weights)
     setup!(ops.transmission, ip.technologies.interface, m)
 
     # Markets

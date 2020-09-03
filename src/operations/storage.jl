@@ -134,6 +134,7 @@ function setup!(
 
     # Constraints
     # TODO: Pull storage reserve constributions from ZMCv2 formulation
+    # Storage seems to be providing reserves without existing
 
     ops.mindischarge =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],

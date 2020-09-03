@@ -4,9 +4,9 @@ include("storage.jl")
 include("transmission.jl")
 
 struct Operations{R,G1,G2,G3,I,T,P}
-    thermalgens::ThermalGeneratorOperations{R,G1,T,P}
-    variablegens::VariableGeneratorOperations{R,G2,T,P}
-    storages::StorageOperations{R,G3,T,P}
+    thermal::ThermalGeneratorOperations{R,G1,T,P}
+    variable::VariableGeneratorOperations{R,G2,T,P}
+    storage::StorageOperations{R,G3,T,P}
     transmission::TransmissionOperations{R,I,T,P}
 end
 
@@ -37,22 +37,22 @@ function loadoperations(
 end
 
 welfare(x::Operations) =
-    welfare(x.thermalgens) + welfare(x.variablegens) + welfare(x.storages)
+    welfare(x.thermal) + welfare(x.variable) + welfare(x.storage)
 
 ucap(x::Operations) =
-    sum(x.thermalgens.ucap) + sum(x.variablegens.ucap) + sum(x.storages.ucap)
+    sum(x.thermal.ucap) + sum(x.variable.ucap) + sum(x.storage.ucap)
 
 energy(x::Operations, r::Int, t::Int, p::Int) =
-    x.thermalgens.totalenergy[r,t,p] +
-    x.variablegens.totalenergy[r,t,p] +
-    x.storages.totalenergy[r,t,p]
+    x.thermal.totalenergy[r,t,p] +
+    x.variable.totalenergy[r,t,p] +
+    x.storage.totalenergy[r,t,p]
 
 raisereserve(x::Operations, r::Int, t::Int, p::Int) =
-    x.thermalgens.totalraisereserve[r,t,p] +
-    x.variablegens.totalraisereserve[r,t,p] +
-    x.storages.totalraisereserve[r,t,p]
+    x.thermal.totalraisereserve[r,t,p] +
+    x.variable.totalraisereserve[r,t,p] +
+    x.storage.totalraisereserve[r,t,p]
 
 lowerreserve(x::Operations, r::Int, t::Int, p::Int) =
-    x.thermalgens.totallowerreserve[r,t,p] +
-    x.variablegens.totallowerreserve[r,t,p] +
-    x.storages.totallowerreserve[r,t,p]
+    x.thermal.totallowerreserve[r,t,p] +
+    x.variable.totallowerreserve[r,t,p] +
+    x.storage.totallowerreserve[r,t,p]

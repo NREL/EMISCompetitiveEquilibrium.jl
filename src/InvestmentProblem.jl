@@ -1,44 +1,57 @@
 # R: number of regions
 # G: number of generators (either thermal / VG / storage)
 # T: number of operations timesteps per period
-# P: number of operations periods
+# P: number of operations periods (representative)
 
 mutable struct InvestmentProblem{R,G1,G2,G3,I,T,P} <: AbstractProblem{R,G1,G2,G3,I,T,P}
 
     model::Model
-
+    regionnames::Vector{String}
+    periodnames::Vector{String}
     technologies::Technologies{G1,G2,G3,I,R}
     initialconditions::InitialConditions{R,G1,G2,G3}
-
     discountrate::Float64
-
     rootscenario::Scenario{R,G1,G2,G3,I,T,P}
 
-    InvestmentProblem{T,P}(
+    function InvestmentProblem{T}(
         model::Model,
+        regionnames::Vector{String},
+        periodnames::Vector{String},
         techs::Technologies{G1,G2,G3,I,R},
         initconds::InitialConditions{R,G1,G2,G3},
         discountrate::Float64
-    ) where {R,G1,G2,G3,I,T,P} =
-        new{R,G1,G2,G3,I,T,P}(model, techs, initconds, discountrate)
+    ) where {R,G1,G2,G3,I,T}
+
+        @assert R == length(regionnames)
+        P = length(periodnames)
+
+        new{R,G1,G2,G3,I,T,P}(model, regionnames, periodnames,
+                              techs, initconds, discountrate)
+
+    end
 
 end
 
 function InvestmentProblem(
+    regionnames::Vector{String},
+    periodnames::Vector{String},
     techs::Technologies{G1,G2,G3,I,R},
     initconds::InitialConditions{R,G1,G2,G3},
     discountrate::Float64,
+    rootname::String,
     investments::Investments{R,G1,G2,G3},
     operations::Operations{R,G1,G2,G3,I,T,P},
     markets::Markets{R,T,P},
     periodweights::Vector{Float64},
-    optimizer::Type{<:MOI.AbstractOptimizer}
+    optimizer::Optimizer
 ) where {R,G1,G2,G3,I,T,P}
 
-    invprob = InvestmentProblem{T,P}(
-        Model(optimizer), techs, initconds, discountrate)
+    invprob = InvestmentProblem{T}(
+        Model(optimizer), regionnames, periodnames,
+        techs, initconds, discountrate)
 
-    root = Scenario(invprob, investments, operations, markets, periodweights)
+    root = Scenario(invprob, rootname,
+                    investments, operations, markets, periodweights)
     invprob.rootscenario = root
 
     return invprob
@@ -47,7 +60,7 @@ end
 
 # For now, loading in single-scenario only
 function InvestmentProblem(
-    folder::String, optimizer::Type{<:MOI.AbstractOptimizer}
+    folder::String, optimizer::Optimizer
 )
 
     # Load representative periods
@@ -78,11 +91,13 @@ function InvestmentProblem(
         thermaldata.maxrampup, thermaldata.maxrampdown,
         thermaldata.capacitycredit)
     n_thermals = length(thermaltechs.name)
+    thermallookup = Dict(zip(thermaldata.name, 1:n_thermals))
 
     variabledata = DataFrame!(CSV.File(joinpath(technicalpath, "variable.csv")))
     variabletechs = VariableGenerators(
         variabledata.name, variabledata.owner, variabledata.maxgen)
     n_variables = length(variabletechs.name)
+    variablelookup = Dict(zip(variabledata.name, 1:n_variables))
 
     storagedata = DataFrame!(CSV.File(joinpath(technicalpath, "storage.csv")))
     storagetechs = StorageDevices(
@@ -91,6 +106,7 @@ function InvestmentProblem(
         storagedata.chargeefficiency, storagedata.dischargeefficiency,
         storagedata.carryoverefficiency, storagedata.capacitycredit)
     n_storages = length(storagetechs.name)
+    storagelookup = Dict(zip(storagedata.name, 1:n_storages))
 
     interfacedata = DataFrame!(CSV.File(
         joinpath(technicalpath, "interface.csv"), type=String))
@@ -108,7 +124,6 @@ function InvestmentProblem(
     initialdata =
         DataFrame!(CSV.File(joinpath(folder, "initialconditions.csv"),
                             types=initialcondition_types))
-    initialdata.region_idx = getindex.(Ref(regionlookup), initialdata.region)
 
     thermalstarts = InitialInvestments(
         zeros(Int, n_regions, n_thermals), zeros(Int, n_regions, n_thermals))
@@ -121,24 +136,26 @@ function InvestmentProblem(
 
     for r in eachrow(initialdata)
 
-        thermal_idx = findfirst(isequal(r.class), thermaldata.name)
+        region_idx = regionlookup[r.region]
+
+        thermal_idx = thermallookup[r.class]
         if !isnothing(thermal_idx)
-            thermalstarts.options[thermal_idx] = r.optioned
-            thermalstarts.builds[thermal_idx] = r.built
+            thermalstarts.options[region_idx, thermal_idx] = r.optioned
+            thermalstarts.builds[region_idx, thermal_idx] = r.built
             continue
         end
 
-        variable_idx = findfirst(isequal(r.class), variabledata.name)
+        variable_idx = variablelookup[r.class]
         if !isnothing(variable_idx)
-            variablestarts.options[variable_idx] = r.optioned
-            variablestarts.builds[variable_idx] = r.built
+            variablestarts.options[region_idx, variable_idx] = r.optioned
+            variablestarts.builds[region_idx, variable_idx] = r.built
             continue
         end
 
-        storage_idx = findfirst(isequal(r.class), storagedata.name)
+        storage_idx = storagelookup[r.class]
         if !isnothing(storage_idx)
-            storagestarts.options[storage_idx] = r.optioned
-            storagestarts.builds[storage_idx] = r.built
+            storagestarts.options[region_idx, storage_idx] = r.optioned
+            storagestarts.builds[region_idx, storage_idx] = r.built
             continue
         end
 
@@ -155,14 +172,14 @@ function InvestmentProblem(
                                         types=scenarios_tree_types))
 
     root_idx = findfirst(ismissing, scenariosdata.parent)
-    root_scenario = scenariosdata.name[root_idx]
-    rootpath = joinpath(scenariospath, root_scenario)
+    rootname = scenariosdata.name[root_idx]
+    rootpath = joinpath(scenariospath, rootname)
     investments, operations, markets =
         loadscenario(regionlookup, techs, periodlookup, n_timesteps, rootpath)
 
     return InvestmentProblem(
-        techs, initconds, discountrate,
-        investments, operations, markets,
+        regiondata.name, perioddata.name, techs, initconds, discountrate,
+        rootname, investments, operations, markets,
         perioddata.weight, optimizer)
 
 end
@@ -171,4 +188,13 @@ function solve!(invprob::InvestmentProblem)
     @objective(invprob.model, Max, welfare(invprob.rootscenario))
     optimize!(invprob.model)
     return
+end
+
+# TODO: Breadth-first search might be more useful (keep things chronological?)
+
+scenarios(invprob::InvestmentProblem) = scenarios(invprob.rootscenario)
+
+function scenarios(root::Scenario)
+    iszero(length(root.children)) && return [(root, true)]
+    return vcat((root, false), scenarios.(root.children)...)
 end

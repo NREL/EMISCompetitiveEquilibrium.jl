@@ -11,9 +11,9 @@ struct InitialInvestments{R,G}
 end
 
 struct InitialConditions{R,G1,G2,G3}
-    thermalgens::InitialInvestments{R,G1}
-    variablegens::InitialInvestments{R,G2}
-    storages::InitialInvestments{R,G3}
+    thermal::InitialInvestments{R,G1}
+    variable::InitialInvestments{R,G2}
+    storage::InitialInvestments{R,G3}
 end
 
 mutable struct ResourceInvestments{R,G}
@@ -54,11 +54,14 @@ mutable struct ResourceInvestments{R,G}
     investmentcosts::Matrix{ExpressionRef} # $, r x g
 
     # Constraints
+
     minnewoptions::Matrix{GreaterThanConstraintRef} # r x g
     maxnewoptions::Matrix{LessThanConstraintRef}
     minnewbuilds::Matrix{GreaterThanConstraintRef}
     maxnewbuilds_optionlimit::Matrix{LessThanConstraintRef}
     maxnewbuilds_physicallimit::Matrix{LessThanConstraintRef}
+    minnewretirements::Matrix{GreaterThanConstraintRef}
+    maxnewretirements::Matrix{LessThanConstraintRef}
 
     function ResourceInvestments{}(
         optioncost::Matrix{Float64}, buildcost::Matrix{Float64},
@@ -190,6 +193,10 @@ function setup!(
         @constraint(m, [r in 1:R, g in 1:G],
                     invs.newbuilds[r,g] <= invs.newbuildslimit[r,g])
 
+    invs.minnewretirements =
+        @constraint(m, [r in 1:R, g in 1:G],
+                    invs.newretirements[r,g] >= 0)
+
     return
 
 end
@@ -199,6 +206,10 @@ function setup_unitstates!(
     m::Model,
     existing::InitialInvestments{R,G}
 ) where {R, G}
+
+    invs.maxnewretirements =
+        @constraint(m, [r in 1:R, g in 1:G],
+                    invs.newretirements[r,g] <= existing.builds[r,g])
 
     invs.vesting =
         @expression(m, [r in 1:R, g in 1:G],
@@ -232,6 +243,9 @@ function setup_unitstates!(
     parentinvs::ResourceInvestments{R,G}
 ) where {R, G}
 
+    invs.maxnewretirements =
+        @constraint(m, [r in 1:R, g in 1:G],
+                    invs.newretirements[r,g] <= parentinvs.dispatchable[r,g])
     invs.vesting =
         @expression(m, [r in 1:R, g in 1:G],
                     parentinvs.vesting[r,g] + invs.newoptions[r,g]
@@ -262,9 +276,9 @@ welfare(x::ResourceInvestments) = -sum(x.investmentcosts)
 
 
 struct Investments{R,G1,G2,G3}
-    thermalgens::ResourceInvestments{R,G1}
-    variablegens::ResourceInvestments{R,G2}
-    storages::ResourceInvestments{R,G3}
+    thermal::ResourceInvestments{R,G1}
+    variable::ResourceInvestments{R,G2}
+    storage::ResourceInvestments{R,G3}
 end
 
 function loadinvestments(
@@ -284,5 +298,5 @@ function loadinvestments(
 
 end
 
-welfare(x::Investments) =
-    welfare(x.thermalgens) + welfare(x.variablegens) + welfare(x.storages)
+welfare(inv::Investments) =
+    welfare(inv.thermal) + welfare(inv.variable) + welfare(inv.storage)

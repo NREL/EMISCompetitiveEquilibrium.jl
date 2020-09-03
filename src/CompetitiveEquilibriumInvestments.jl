@@ -5,7 +5,7 @@ using JuMP
 import MathOptInterface
 const MOI = MathOptInterface
 
-import DataFrames: DataFrame!, stack, Not
+import DataFrames: DataFrame, DataFrame!, stack, Not
 import CSV
 
 const ExpressionRef = GenericAffExpr{Float64,VariableRef}
@@ -19,6 +19,7 @@ const GreaterThanConstraintRef = ConstrRef{MOI.GreaterThan{Float64}}
 const EqualToConstraintRef     = ConstrRef{MOI.EqualTo{Float64}}
 
 const SparseAxisArray{T,N} = JuMP.Containers.SparseAxisArray{T,N,NTuple{N,Int64}}
+const Optimizer = Union{Type{<:MOI.AbstractOptimizer}, MOI.OptimizerWithAttributes}
 
 abstract type AbstractProblem{R,G1,G2,G3,I,T,P} end
 abstract type AbstractScenario end
@@ -31,6 +32,7 @@ include("operations/operations.jl")
 include("markets/markets.jl")
 include("Scenario.jl")
 include("InvestmentProblem.jl")
+include("report.jl")
 
 
 export
@@ -47,6 +49,6 @@ export
     Markets,
     CapacityMarket, EnergyMarket, RaiseReserveMarket, LowerReserveMarket,
 
-    Scenario, InvestmentProblem, solve!
+    Scenario, InvestmentProblem, solve!, report
 
 end

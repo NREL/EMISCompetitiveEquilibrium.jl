@@ -1,4 +1,5 @@
 using CompetitiveEquilibriumInvestments
+using JuMP
 using Gurobi
 using Test
 
@@ -11,6 +12,9 @@ using Test
     I = 3
     T = 12
     P = 4
+
+    periodnames = ["P$i" for i in 1:P]
+    regionnames = ["A", "B", "C"]
 
     # Generation / Storage Technologies
 
@@ -87,14 +91,19 @@ using Test
     # InvestmentProblem
 
     discountrate = 0.98
-    p = InvestmentProblem(techs, initconds, discountrate,
+    p = InvestmentProblem(regionnames, periodnames, techs, initconds,
+                          discountrate, "RootScenario",
                           invs, ops, markets, periodweights, Gurobi.Optimizer)
 
     solve!(p)
+    report(joinpath(dirname(@__FILE__), "toymodel"), p)
 
 end
 
 @testset "RTS" begin
-    p = InvestmentProblem("/home/gord/work/EMIS/EMISPreprocessing/output", Gurobi.Optimizer)
+    p = InvestmentProblem(
+        "/home/gord/work/EMIS/EMISPreprocessing/output",
+        optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.005))
     solve!(p)
+    report(joinpath(dirname(@__FILE__), "rts"), p)
 end
