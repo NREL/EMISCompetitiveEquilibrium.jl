@@ -1,3 +1,5 @@
+prev(n::Int, t::Int, T::Int) = mod(t-n-1, T) + 1
+
 include("thermal.jl")
 include("variable.jl")
 include("storage.jl")

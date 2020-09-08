@@ -34,7 +34,6 @@ include("Scenario.jl")
 include("InvestmentProblem.jl")
 include("report.jl")
 
-
 export
 
     Technologies,

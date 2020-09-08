@@ -138,21 +138,21 @@ function InvestmentProblem(
 
         region_idx = regionlookup[r.region]
 
-        thermal_idx = thermallookup[r.class]
+        thermal_idx = get(thermallookup, r.class, nothing)
         if !isnothing(thermal_idx)
             thermalstarts.options[region_idx, thermal_idx] = r.optioned
             thermalstarts.builds[region_idx, thermal_idx] = r.built
             continue
         end
 
-        variable_idx = variablelookup[r.class]
+        variable_idx = get(variablelookup, r.class, nothing)
         if !isnothing(variable_idx)
             variablestarts.options[region_idx, variable_idx] = r.optioned
             variablestarts.builds[region_idx, variable_idx] = r.built
             continue
         end
 
-        storage_idx = storagelookup[r.class]
+        storage_idx = get(storagelookup, r.class, nothing)
         if !isnothing(storage_idx)
             storagestarts.options[region_idx, storage_idx] = r.optioned
             storagestarts.builds[region_idx, storage_idx] = r.built

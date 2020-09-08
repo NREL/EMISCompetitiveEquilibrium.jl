@@ -38,8 +38,8 @@ mutable struct ThermalGeneratorOperations{R,G,T,P}
     maxunitshutdowns::Array{LessThanConstraintRef,4}  # (r x g x t x p)
 
     unitcommitmentcontinuity::Array{EqualToConstraintRef,4}  # (r x g x t x p)
-    minunituptime::SparseAxisArray{LessThanConstraintRef,4} # (r x g x t-? x p)
-    minunitdowntime::SparseAxisArray{LessThanConstraintRef,4}
+    minunituptime::Array{LessThanConstraintRef,4} # (r x g x t-? x p)
+    minunitdowntime::Array{LessThanConstraintRef,4}
 
     mingeneration::Array{GreaterThanConstraintRef,4} # (r x g x t x p)
     maxgeneration::Array{LessThanConstraintRef,4}
@@ -167,39 +167,26 @@ function setup!(
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.started[r,g,t,p] >= 0)
 
-    ops.maxunitstartups = # Redundant given UC continuity + commitment max?
-        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
-                    ops.started[r,g,t,p] <=
-                    invs.dispatchable[r,g] -
-                    ((t > 1) ? ops.committed[r,g,t-1,p] : 0))
-
     ops.minunitshutdowns =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.shutdown[r,g,t,p] >= 0)
 
-    ops.maxunitshutdowns = # Redundant given UC continuity + commitment max?
-        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
-                    ops.shutdown[r,g,t,p] <=
-                    ((t > 1) ? ops.committed[r,g,t-1,p] : 0))
-
     ops.unitcommitmentcontinuity =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.committed[r,g,t,p] ==
-                    ((t > 1) ? ops.committed[r,g,t-1,p] : 0)
+                    ops.committed[r,g,prev(1,t,T),p]
                     + ops.started[r,g,t,p] - ops.shutdown[r,g,t,p])
 
     ops.minunituptime =
-        @constraint(m, [r in 1:R, g in 1:G,
-                        t in units.minuptime[g]:T, p in 1:P],
-                    sum(ops.started[r,g,i,p]
-                        for i in (t-units.minuptime[g]+1):t) <=
+        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
+                    sum(ops.started[r,g,prev(i,t,T),p]
+                        for i in 0:(units.minuptime[g]-1)) <=
                     ops.committed[r,g,t,p])
 
     ops.minunitdowntime =
-        @constraint(m, [r in 1:R, g in 1:G,
-                        t in units.mindowntime[g]:T, p in 1:P],
-                    sum(ops.shutdown[r,g,i,p]
-                        for i in (t-units.mindowntime[g]+1):t) <=
+        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
+                    sum(ops.shutdown[r,g,prev(i,t,T),p]
+                        for i in 0:(units.mindowntime[g]-1)) <=
                     invs.dispatchable[r,g] - ops.committed[r,g,t,p])
 
     ops.mingeneration =
@@ -230,12 +217,10 @@ function setup!(
                     ops.raisereserve[r,g,t,p] <=
                     ops.committed[r,g,t,p] * units.maxrampup[g])
 
-    # TODO: Double-check these constraints make sense
-
     ops.maxrampdown =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.energydispatch[r,g,t,p] - ops.lowerreserve[r,g,t,p] >=
-                    ((t > 1) ? ops.energydispatch[r,g,t-1,p] : 0)
+                    ops.energydispatch[r,g,prev(1,t,T),p]
                     - (ops.committed[r,g,t,p] - ops.started[r,g,t,p]) *
                       units.maxrampdown[g]
                     + ops.started[r,g,t,p] * units.mingen[g]
@@ -245,7 +230,7 @@ function setup!(
     ops.maxrampup =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.energydispatch[r,g,t,p] + ops.lowerreserve[r,g,t,p] <=
-                    ((t > 1) ? ops.energydispatch[r,g,t-1,p] : 0)
+                    ops.energydispatch[r,g,prev(1,t,T),p]
                     + (ops.committed[r,g,t,p] - ops.started[r,g,t,p]) *
                       units.maxrampup[g]
                     - ops.shutdown[r,g,t,p] * units.mingen[g]

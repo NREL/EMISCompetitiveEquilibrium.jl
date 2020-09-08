@@ -37,6 +37,8 @@ function report(
             else
                 getfield(getfield(scenario.operations, gentype), market)
             end
+
+            marketname = market == :energydispatch ? "energy" : string(market)
  
 
             for (g, genname) in enumerate(gennames),
@@ -44,7 +46,7 @@ function report(
                 t in 1:T
 
                     push!(dispatches,
-                          (scenario=scenario.name, market=string(market),
+                          (scenario=scenario.name, market=marketname,
                            region=regionname, gen=genname,
                            period=periodname, timestep=t,
                            value=value(dispatch[r,g,t,p])))
@@ -90,6 +92,7 @@ function report(
 
     end
 
+    dispatches.value[-1e-10 .< dispatches.value .< 0] .= 0.
     CSV.write(joinpath(reportdir, "dispatch.csv"), dispatches)
     CSV.write(joinpath(reportdir, "demand.csv"), demands)
 

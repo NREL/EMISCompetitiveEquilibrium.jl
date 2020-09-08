@@ -11,6 +11,7 @@ mutable struct StorageOperations{R,G,T,P}
     energydischarge::Array{VariableRef,4} # Inject to grid (MW, r x g x t x p)
     raisereserve::Array{VariableRef,4}   # Raise reserves provisioned
     lowerreserve::Array{VariableRef,4}   # Lower reserves provisioned
+    startstateofcharge::Array{VariableRef,3}   # (MWh, r x g x p)
 
     # Expressions
 
@@ -35,8 +36,13 @@ mutable struct StorageOperations{R,G,T,P}
     maxcharge_power::Array{LessThanConstraintRef,4}
     maxcharge_energy::Array{LessThanConstraintRef,4}
 
-    minenergy::Array{GreaterThanConstraintRef,4}   # (r x g x t-1 x p)
-    maxenergy::Array{LessThanConstraintRef,4}   # (r x g x t-1 x p)
+    minenergy::Array{GreaterThanConstraintRef,4}   # (r x g x t x p)
+    maxenergy::Array{LessThanConstraintRef,4}   # (r x g x t x p)
+
+    minraisereserve::Array{GreaterThanConstraintRef,4}   # (r x g x t x p)
+    minlowerreserve::Array{GreaterThanConstraintRef,4}   # (r x g x t x p)
+
+    periodiccharge::Array{EqualToConstraintRef,3} # (r x g x p)
 
     function StorageOperations{T,P}(
         fixedcost::Matrix{Float64}, variablecost::Matrix{Float64}
@@ -89,6 +95,7 @@ function setup!(
     ops.energycharge    = @variable(m, [1:R, 1:G, 1:T, 1:P])
     ops.raisereserve    = @variable(m, [1:R, 1:G, 1:T, 1:P])
     ops.lowerreserve    = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    ops.startstateofcharge = @variable(m, [1:R, 1:G, 1:P])
 
     # Expressions
 
@@ -129,12 +136,11 @@ function setup!(
 
     ops.stateofcharge =
         @expression(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
-                    0 + sum(ops.energycharge[r,g,i,p] - ops.energydischarge[r,g,i,p]
-                        for i in 1:(t-1)))
+                    ops.startstateofcharge[r,g,p] +
+                    sum(ops.energycharge[r,g,i,p] - ops.energydischarge[r,g,i,p]
+                        for i in 1:t))
 
     # Constraints
-    # TODO: Pull storage reserve constributions from ZMCv2 formulation
-    # Storage seems to be providing reserves without existing
 
     ops.mindischarge =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
@@ -142,12 +148,15 @@ function setup!(
 
     ops.maxdischarge_power =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
-                    ops.energydischarge[r,g,t,p] <=
+                    ops.raisereserve[r,g,t,p] +
+                    ops.energydischarge[r,g,t,p] - ops.energycharge[r,g,t,p] <=
                     invs.dispatchable[r,g] * units.maxdischarge[g])
 
     ops.maxdischarge_energy =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
-                    ops.energydischarge[r,g,t,p] <= ops.stateofcharge[r,g,t,p])
+                    ops.raisereserve[r,g,t,p] +
+                    ops.energydischarge[r,g,t,p] - ops.energycharge[r,g,t,p] <=
+                    ops.stateofcharge[r,g,t,p])
 
     ops.mincharge =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
@@ -155,14 +164,24 @@ function setup!(
 
     ops.maxcharge_power =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
-                    ops.energycharge[r,g,t,p] <=
+                    ops.lowerreserve[r,g,t,p] +
+                    ops.energycharge[r,g,t,p] - ops.energydischarge[r,g,t,p] <=
                     invs.dispatchable[r,g] * units.maxcharge[g])
 
     ops.maxcharge_energy =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
-                    ops.energycharge[r,g,t,p] <=
+                    ops.lowerreserve[r,g,t,p] +
+                    ops.energycharge[r,g,t,p] - ops.energydischarge[r,g,t,p] <=
                     invs.dispatchable[r,g] * units.maxenergy[g]
                      - ops.stateofcharge[r,g,t,p])
+
+    ops.minraisereserve =
+        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
+                    ops.raisereserve[r,g,t,p] >= 0)
+
+    ops.minlowerreserve =
+        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
+                    ops.lowerreserve[r,g,t,p] >= 0)
 
     ops.minenergy =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
@@ -173,7 +192,9 @@ function setup!(
                     ops.stateofcharge[r,g,t,p] <=
                     invs.dispatchable[r,g] * units.maxenergy[g])
 
-    # TODO: Periodic SoC boundary conditions
+    ops.periodiccharge =
+        @constraint(m, [r in 1:R, g in 1:G, p in 1:P],
+                    ops.stateofcharge[r,g,T,p] == ops.startstateofcharge[r,g,p])
 
 end
 
