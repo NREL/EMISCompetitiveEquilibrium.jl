@@ -105,24 +105,41 @@ function setup!(
     ops::ThermalGeneratorOperations{R,G,T,P},
     units::ThermalGenerators{G},
     m::Model, invs::ResourceInvestments{R,G},
-    periodweights::Vector{Float64}
+    periodweights::Vector{Float64},
+    s::AbstractScenario
 ) where {R,G,T,P}
+
+    invprob = s.investmentproblem
+    Rs = invprob.regionnames
+    Gs = units.name
+    Ts = string.(1:T)
+    Ps = invprob.periodnames
 
     # Variables
 
     ops.committed = @variable(m, [1:R, 1:G, 1:T, 1:P], Int)
+    varnames!(ops.committed, "committed_thermal_$(s.name)", Rs, Gs, Ts, Ps)
+
     ops.started   = @variable(m, [1:R, 1:G, 1:T, 1:P], Int)
+    varnames!(ops.started, "started_thermal_$(s.name)", Rs, Gs, Ts, Ps)
+
     ops.shutdown  = @variable(m, [1:R, 1:G, 1:T, 1:P], Int)
+    varnames!(ops.shutdown, "shutdown_thermal_$(s.name)", Rs, Gs, Ts, Ps)
 
     ops.energydispatch = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    varnames!(ops.energydispatch, "energydispatch_thermal_$(s.name)", Rs, Gs, Ts, Ps)
+
     ops.raisereserve   = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    varnames!(ops.raisereserve, "raisereserve_thermal_$(s.name)", Rs, Gs, Ts, Ps)
+
     ops.lowerreserve   = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    varnames!(ops.lowerreserve, "lowerreserve_thermal_$(s.name)", Rs, Gs, Ts, Ps)
 
     # Expressions
 
     ops.fixedcosts =
         @expression(m, [r in 1:R, g in 1:G],
-                    ops.fixedcost[g] * invs.dispatchable[r,g])
+                    ops.fixedcost[g] * invs.dispatching[r,g])
 
     ops.variablecosts =
         @expression(m, [r in 1:R, g in 1:G, p in 1:P],
@@ -138,7 +155,7 @@ function setup!(
 
     ops.ucap =
         @expression(m, [r in 1:R], G > 0 ? sum(
-            invs.dispatchable[r,g] * units.maxgen[g] * units.capacitycredit[g]
+            invs.dispatching[r,g] * units.maxgen[g] * units.capacitycredit[g]
         for g in 1:G) : 0)
 
     ops.totalenergy =
@@ -161,7 +178,7 @@ function setup!(
 
     ops.maxunitcommitment =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
-                    ops.committed[r,g,t,p] <= invs.dispatchable[r,g])
+                    ops.committed[r,g,t,p] <= invs.dispatching[r,g])
 
     ops.minunitstartups =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
@@ -187,7 +204,7 @@ function setup!(
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     sum(ops.shutdown[r,g,prev(i,t,T),p]
                         for i in 0:(units.mindowntime[g]-1)) <=
-                    invs.dispatchable[r,g] - ops.committed[r,g,t,p])
+                    invs.dispatching[r,g] - ops.committed[r,g,t,p])
 
     ops.mingeneration =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],

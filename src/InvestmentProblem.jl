@@ -165,7 +165,7 @@ function InvestmentProblem(
 
     initconds = InitialConditions(thermalstarts, variablestarts, storagestarts)
 
-    # Just load the root scenario for now
+    # Load scenario data
 
     scenariospath = joinpath(folder, "scenarios")
     scenariosdata = DataFrame!(CSV.File(joinpath(scenariospath, "tree.csv"),
@@ -177,20 +177,44 @@ function InvestmentProblem(
     investments, operations, markets =
         loadscenario(regionlookup, techs, periodlookup, n_timesteps, rootpath)
 
-    return InvestmentProblem(
+    result = InvestmentProblem(
         regiondata.name, perioddata.name, techs, initconds, discountrate,
         rootname, investments, operations, markets,
         perioddata.weight, optimizer)
 
+    function makechildren!(parent::Scenario)
+
+        for (childname, prob) in getchildren(parent.name, scenariosdata)
+
+            investments, operations, markets = loadscenario(
+                regionlookup, techs, periodlookup, n_timesteps,
+                joinpath(scenariospath, childname))
+
+            child = Scenario(parent, childname, prob,
+                             investments, operations, markets,
+                             perioddata.weight)
+
+            makechildren!(child)
+
+        end
+
+    end
+
+    makechildren!(result.rootscenario)
+
+    return result
+
 end
 
-function solve!(invprob::InvestmentProblem)
+function solve!(invprob::InvestmentProblem; debug::Bool=false)
     @objective(invprob.model, Max, welfare(invprob.rootscenario))
+    debug && open(f -> println(f, invprob.model), "problem.txt", "w")
     optimize!(invprob.model)
     return
 end
 
-# TODO: Breadth-first search might be more useful (keep things chronological?)
+getchildren(scenario::String, data::DataFrame) = [(row.name, row.probability)
+    for row in eachrow(data) if !ismissing(row.parent) && row.parent == scenario]
 
 scenarios(invprob::InvestmentProblem) = scenarios(invprob.rootscenario)
 

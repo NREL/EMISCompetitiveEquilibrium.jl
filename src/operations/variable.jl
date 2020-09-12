@@ -28,9 +28,7 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
     mingeneration::Array{GreaterThanConstraintRef,4} # (r x g x t x p)
     maxgeneration::Array{LessThanConstraintRef,4}
     minlowerreserve::Array{GreaterThanConstraintRef,4}
-    maxlowerreserve::Array{LessThanConstraintRef,4}
     minraisereserve::Array{GreaterThanConstraintRef,4}
-    maxraisereserve::Array{LessThanConstraintRef,4}
 
     function VariableGeneratorOperations{}(
         fixedcost::Matrix{Float64},
@@ -82,7 +80,6 @@ function VariableGeneratorOperations{T}(
         class = classmatch[1]
 
         gen_idx = variablelookup[class]
-        gen_max = variablegens.maxgen[gen_idx]
 
         availabilitydata = DataFrame!(CSV.File(
             joinpath(availabilitypath, classfile)))
@@ -96,7 +93,7 @@ function VariableGeneratorOperations{T}(
             t = row.timestep
             p_idx = periodlookup[row.period]
 
-            capacityfactor[r_idx,gen_idx,t,p_idx] = row.availability / gen_max
+            capacityfactor[r_idx,gen_idx,t,p_idx] = row.availability
 
         end
 
@@ -111,20 +108,32 @@ function setup!(
     units::VariableGenerators{G},
     m::Model,
     invs::ResourceInvestments{R,G},
-    periodweights::Vector{Float64}
+    periodweights::Vector{Float64},
+    s::AbstractScenario
 ) where {R,G,T,P}
+
+    invprob = s.investmentproblem
+    Rs = invprob.regionnames
+    Gs = units.name
+    Ts = string.(1:T)
+    Ps = invprob.periodnames
 
     # Variables
 
     ops.energydispatch = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    varnames!(ops.energydispatch, "energydispatch_variable_$(s.name)", Rs, Gs, Ts, Ps)
+
     ops.raisereserve   = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    varnames!(ops.raisereserve, "raisereserve_variable_$(s.name)", Rs, Gs, Ts, Ps)
+
     ops.lowerreserve   = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    varnames!(ops.lowerreserve, "lowerreserve_variable_$(s.name)", Rs, Gs, Ts, Ps)
 
     # Expressions
 
     ops.fixedcosts =
         @expression(m, [r in 1:R, g in 1:G],
-                    ops.fixedcost[r,g] * invs.dispatchable[r,g])
+                    ops.fixedcost[r,g] * invs.dispatching[r,g])
 
     ops.variablecosts =
         @expression(m, [r in 1:R, g in 1:G, p in 1:P],
@@ -161,25 +170,15 @@ function setup!(
     ops.maxgeneration =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.energydispatch[r,g,t,p] + ops.raisereserve[r,g,t,p] <=
-                    invs.dispatchable[r,g] * ops.capacityfactor[r,g,t,p] * units.maxgen[g])
+                    invs.dispatching[r,g] * ops.capacityfactor[r,g,t,p] * units.maxgen[g])
 
     ops.minlowerreserve =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.lowerreserve[r,g,t,p] >= 0)
 
-    ops.maxlowerreserve = # TODO: Is this redundant?
-        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
-                    ops.lowerreserve[r,g,t,p] <=
-                    invs.dispatchable[r,g] * units.maxgen[g])
-
     ops.minraisereserve =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.raisereserve[r,g,t,p] >= 0)
-
-    ops.maxraisereserve = # TODO: Is this redundant?
-        @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
-                    ops.raisereserve[r,g,t,p] <=
-                    invs.dispatchable[r,g] * units.maxgen[g])
 
 end
 

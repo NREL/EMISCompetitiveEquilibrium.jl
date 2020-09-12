@@ -25,17 +25,20 @@ function report(
             (r, regionname) in enumerate(invprob.regionnames),
             gentype in [:thermal, :variable, :storage]
 
-            gennames = getfield(invprob.technologies, gentype).name
+            gentech = getfield(invprob.technologies, gentype)
+            gennames = gentech.name
 
-            dispatch = if gentype == :storage
-                if market == :energydispatch
+            if gentype == :storage
+                gencapacities = gentech.maxdischarge
+                dispatch = if market == :energydispatch
                     scenario.operations.storage.energydischarge .-
                     scenario.operations.storage.energycharge
                 else
                     getfield(scenario.operations.storage, market)
                 end
             else
-                getfield(getfield(scenario.operations, gentype), market)
+                gencapacities = gentech.maxgen
+                dispatch = getfield(getfield(scenario.operations, gentype), market)
             end
 
             marketname = market == :energydispatch ? "energy" : string(market)
@@ -81,7 +84,8 @@ function report(
             buildouts = DataFrame[]
 
             while !isnothing(scen)
-                push!(buildouts, investmentstates(scenario))
+                println(scen.name)
+                push!(buildouts, investmentstates(scen))
                 scen = scen.parent
             end
 
@@ -92,7 +96,7 @@ function report(
 
     end
 
-    dispatches.value[-1e-10 .< dispatches.value .< 0] .= 0.
+    dispatches.value[-1e-4 .< dispatches.value .< 0] .= 0.
     CSV.write(joinpath(reportdir, "dispatch.csv"), dispatches)
     CSV.write(joinpath(reportdir, "demand.csv"), demands)
 
@@ -101,21 +105,30 @@ end
 function investmentstates(scen::Scenario)
 
     result = DataFrame(
-        scenario=String[], tech=String[], state=String[], count=Int[])
+        scenario=String[], tech=String[], state=String[],
+        count=Int[], capacity=Float64[])
 
     for techtype in [:thermal, :variable, :storage]
 
         techs = getfield(scen.investmentproblem.technologies, techtype)
         investments = getfield(scen.investments, techtype)
 
-        for state in [:vesting, :buildable, :building, :dispatchable, :retired]
+        for state in [:vesting, :holding, :building, :dispatching, :retired]
 
             counts = round.(Int, value.(getfield(investments, state)))
 
-            for (i, tech) in enumerate(techs.name)
-                push!(result, (scenario=scen.name, tech=tech,
+            for i in 1:length(techs.name)
+
+                techname = techs.name[i]
+                techcapacity = techtype == :storage ?
+                    techs.maxdischarge[i] : techs.maxgen[i]
+
+                count = sum(counts[:, i])
+                push!(result, (scenario=scen.name, tech=techname,
                                state=string(state),
-                               count=sum(counts[:, i])))
+                               count=count,
+                               capacity=count*techcapacity))
+
             end
             
         end

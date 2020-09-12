@@ -24,6 +24,19 @@ const Optimizer = Union{Type{<:MOI.AbstractOptimizer}, MOI.OptimizerWithAttribut
 abstract type AbstractProblem{R,G1,G2,G3,I,T,P} end
 abstract type AbstractScenario end
 
+function varnames!(vars::Array{VariableRef},
+                   basename::String, labels::Vector{String}...)
+
+    dims = size(vars)
+    dims == length.(labels) || error("Provided labels do not match array size")
+
+    for idxs in Iterators.product(Base.OneTo.(dims)...)
+        idx_labels = getindex.(labels, idxs)
+        set_name(vars[idxs...], basename * "[" * join(idx_labels, ",") * "]")
+    end
+
+end
+
 include("readutils.jl")
 
 include("resources.jl")

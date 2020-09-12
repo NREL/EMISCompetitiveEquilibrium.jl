@@ -31,13 +31,20 @@ end
 
 function setup!(
     market::RaiseReserveMarket{R,T,P}, m::Model,
-    ops::Operations{R,G1,G2,G3,I,T,P}, periodweights::Vector{Float64}
+    ops::Operations{R,G1,G2,G3,I,T,P}, periodweights::Vector{Float64},
+    s::AbstractScenario
 ) where {R,G1,G2,G3,I,T,P}
+
+    invprob = s.investmentproblem
+    Rs = invprob.regionnames
+    Ts = string.(1:T)
+    Ps = invprob.periodnames
 
     # Variables
 
     market.shortfall =
         @variable(m, [r in 1:R, t in 1:T, p in 1:P])
+    varnames!(market.shortfall, "shortfall_raisereserve_$(s.name)", Rs, Ts, Ps)
 
     # Expressions
 

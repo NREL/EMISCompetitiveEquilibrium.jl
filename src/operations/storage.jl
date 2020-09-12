@@ -86,22 +86,38 @@ function setup!(
     units::StorageDevices{G},
     m::Model,
     invs::ResourceInvestments{R,G},
-    periodweights::Vector{Float64}
+    periodweights::Vector{Float64},
+    s::AbstractScenario
 ) where {R,G,T,P}
+
+    invprob = s.investmentproblem
+    Rs = invprob.regionnames
+    Gs = units.name
+    Ts = string.(1:T)
+    Ps = invprob.periodnames
 
     # Variables
 
     ops.energydischarge = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    varnames!(ops.energydischarge, "energydischarge_storage_$(s.name)", Rs, Gs, Ts, Ps)
+
     ops.energycharge    = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    varnames!(ops.energycharge, "energycharge_storage_$(s.name)", Rs, Gs, Ts, Ps)
+
     ops.raisereserve    = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    varnames!(ops.raisereserve, "raisereserve_storage_$(s.name)", Rs, Gs, Ts, Ps)
+
     ops.lowerreserve    = @variable(m, [1:R, 1:G, 1:T, 1:P])
+    varnames!(ops.lowerreserve, "lowerreserve_storage_$(s.name)", Rs, Gs, Ts, Ps)
+
     ops.startstateofcharge = @variable(m, [1:R, 1:G, 1:P])
+    varnames!(ops.startstateofcharge, "startstateofcharge_storage_$(s.name)", Rs, Gs, Ps)
 
     # Expressions
 
     ops.fixedcosts =
         @expression(m, [r in 1:R, g in 1:G],
-                    ops.fixedcost[r,g] * invs.dispatchable[r,g])
+                    ops.fixedcost[r,g] * invs.dispatching[r,g])
 
     ops.variablecosts =
         @expression(m, [r in 1:R, g in 1:G, p in 1:P],
@@ -117,7 +133,7 @@ function setup!(
 
     ops.ucap =
         @expression(m, [r in 1:R], G > 0 ? sum(
-            invs.dispatchable[r,g] * units.maxdischarge[g] * units.capacitycredit[g]
+            invs.dispatching[r,g] * units.maxdischarge[g] * units.capacitycredit[g]
         for g in 1:G) : 0)
 
 
@@ -150,7 +166,7 @@ function setup!(
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.raisereserve[r,g,t,p] +
                     ops.energydischarge[r,g,t,p] - ops.energycharge[r,g,t,p] <=
-                    invs.dispatchable[r,g] * units.maxdischarge[g])
+                    invs.dispatching[r,g] * units.maxdischarge[g])
 
     ops.maxdischarge_energy =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
@@ -166,13 +182,13 @@ function setup!(
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.lowerreserve[r,g,t,p] +
                     ops.energycharge[r,g,t,p] - ops.energydischarge[r,g,t,p] <=
-                    invs.dispatchable[r,g] * units.maxcharge[g])
+                    invs.dispatching[r,g] * units.maxcharge[g])
 
     ops.maxcharge_energy =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.lowerreserve[r,g,t,p] +
                     ops.energycharge[r,g,t,p] - ops.energydischarge[r,g,t,p] <=
-                    invs.dispatchable[r,g] * units.maxenergy[g]
+                    invs.dispatching[r,g] * units.maxenergy[g]
                      - ops.stateofcharge[r,g,t,p])
 
     ops.minraisereserve =
@@ -190,7 +206,7 @@ function setup!(
     ops.maxenergy =
         @constraint(m, [r in 1:R, g in 1:G, t in 1:T, p in 1:P],
                     ops.stateofcharge[r,g,t,p] <=
-                    invs.dispatchable[r,g] * units.maxenergy[g])
+                    invs.dispatching[r,g] * units.maxenergy[g])
 
     ops.periodiccharge =
         @constraint(m, [r in 1:R, g in 1:G, p in 1:P],

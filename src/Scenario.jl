@@ -28,9 +28,13 @@ struct Scenario{R,G1,G2,G3,I,T,P,IP<:AbstractProblem{R,G1,G2,G3,I,T,P}
         @assert length(periodweights) == P
         @assert 0 < probability <= 1
 
-        new{R,G1,G2,G3,I,T,P,IP}(
+        s = new{R,G1,G2,G3,I,T,P,IP}(
             name, probability, parentscenario, childscenarios,
             investmentproblem, investments, operations, markets, periodweights)
+
+        isnothing(parentscenario) || push!(parentscenario.children, s)
+
+        return s
 
     end
 
@@ -104,16 +108,16 @@ function setup!(s::Scenario)
     setup!(s, :storage, m, ip.initialconditions.storage)
 
     # Operations
-    setup!(ops.thermal,  ip.technologies.thermal,   m, invs.thermal, weights)
-    setup!(ops.variable, ip.technologies.variable,  m, invs.variable, weights)
-    setup!(ops.storage,     ip.technologies.storage,   m, invs.storage, weights)
+    setup!(ops.thermal,  ip.technologies.thermal,   m, invs.thermal, weights, s)
+    setup!(ops.variable, ip.technologies.variable,  m, invs.variable, weights, s)
+    setup!(ops.storage,     ip.technologies.storage,   m, invs.storage, weights, s)
     setup!(ops.transmission, ip.technologies.interface, m)
 
     # Markets
     setup!(markets.capacity,     m, ops)
-    setup!(markets.energy,       m, ops, weights)
-    setup!(markets.raisereserve, m, ops, weights)
-    setup!(markets.lowerreserve, m, ops, weights)
+    setup!(markets.energy,       m, ops, weights, s)
+    setup!(markets.raisereserve, m, ops, weights, s)
+    setup!(markets.lowerreserve, m, ops, weights, s)
 
     return s
 
@@ -134,7 +138,7 @@ function maturing(
             count += getfield(invs, action)[r,g]
         end
 
-        historical = s.parent
+        historical = historical.parent
         stepsback += 1
 
     end

@@ -3,7 +3,7 @@ using JuMP
 using Gurobi
 using Test
 
-@testset "Toy Problem" begin
+false && @testset "Toy Problem" begin
 
     R = 3
     G1 = 1
@@ -42,11 +42,13 @@ using Test
 
     inv_thermal = ResourceInvestments(
         fill(1000., R, G1), fill(10000., R, G1), fill(0., R, G1),
-        fill(1, R, G1), fill(1, R, G1), fill(0, R, G1), fill(0, R, G1))
+        fill(1, R, G1), fill(1, R, G1), fill(0, R, G1), fill(0, R, G1),
+        fill(0, R, G1))
 
     inv_empty = ResourceInvestments(
-        zeros(Float64,R,0), zeros(Float64,R,0), zeros(Float64,R,0),
-        zeros(Int,R,0), zeros(Int,R,0), zeros(Int, R, 0), zeros(Int, R, 0))
+        zeros(Float64, R, 0), zeros(Float64, R, 0), zeros(Float64, R, 0),
+        zeros(Int, R, 0), zeros(Int, R, 0), zeros(Int, R, 0), zeros(Int, R, 0),
+        zeros(Int, R, 0))
 
     invs = Investments(inv_thermal, inv_empty, inv_empty)
 
@@ -103,7 +105,7 @@ end
 @testset "RTS" begin
     p = InvestmentProblem(
         "/home/gord/work/EMIS/EMISPreprocessing/output",
-        optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.005))
-    solve!(p)
+        optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.001))
+    solve!(p, debug=true)
     report(joinpath(dirname(@__FILE__), "rts"), p)
 end

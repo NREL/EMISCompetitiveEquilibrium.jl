@@ -66,5 +66,6 @@ function loadmarket(
 end
 
 welfare(x::Markets) =
-    welfare(x.capacity) + welfare(x.energy) +
+    # welfare(x.capacity) + welfare(x.energy) +
+    welfare(x.energy) +
     welfare(x.raisereserve) + welfare(x.lowerreserve)
