@@ -30,5 +30,7 @@ const scenarios_market_param_types = Dict(
     :region=>String, :pricecap=>Float64)
 
 const scenarios_capacitymarket_param_types = Dict(
-    :targetprice=>Float64, :targetcapacity=>Float64, :demandslope=>Float64)
+    :maxprice=>Float64, :midprice=>Float64,
+    :maxpricepeakscalar=>Float64, :midpricepeakscalar=>Float64,
+    :zeropricepeakscalar=>Float64)
 

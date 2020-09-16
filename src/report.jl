@@ -21,6 +21,27 @@ function report(
 
     for (scenario, isleaf) in scenarios(invprob)
 
+        println("\n", scenario.name)
+        capmkt = scenario.markets.capacity
+
+        println("Capacity Market Parameters:")
+        println(capmkt.maxprice_capacity)
+        println(capmkt.midprice_capacity)
+        println(capmkt.zeroprice_capacity)
+
+        println("Capacity Market Contributions:")
+        println(value(capmkt.totalcontribution))
+        println(value(capmkt.seg0contribution))
+        println(value(capmkt.seg1contribution))
+        println(value(capmkt.seg2contribution))
+
+        println("Capacity Market Prices:")
+        println(value(capmkt.seg1price))
+        println(value(capmkt.seg2price))
+
+        println("Capacity Market Welfare:")
+        println(value(capmkt.capacitywelfare))
+
         for market in [:energydispatch, :raisereserve, :lowerreserve],
             (r, regionname) in enumerate(invprob.regionnames),
             gentype in [:thermal, :variable, :storage]

@@ -114,7 +114,7 @@ function setup!(s::Scenario)
     setup!(ops.transmission, ip.technologies.interface, m)
 
     # Markets
-    setup!(markets.capacity,     m, ops)
+    setup!(markets.capacity,     m, ops, s)
     setup!(markets.energy,       m, ops, weights, s)
     setup!(markets.raisereserve, m, ops, weights, s)
     setup!(markets.lowerreserve, m, ops, weights, s)
@@ -147,8 +147,19 @@ function maturing(
 
 end
 
-welfare(s::Scenario) =
-    welfare(s.investments) + welfare(s.operations) + welfare(s.markets) +
-    s.investmentproblem.discountrate *
-    ((length(s.children) > 0) ?
-        sum(cs.probability * welfare(cs) for cs in s.children) : 0)
+function welfare(s::Scenario)
+
+    discountrate = s.investmentproblem.discountrate
+    oneoffwelfare = welfare(s.investments)
+    recurringwelfare = welfare(s.operations) + welfare(s.markets)
+
+    return if length(s.children) > 0
+        # Current + discounted future welfare
+        oneoffwelfare + recurringwelfare + discountrate *
+        sum(cs.probability * welfare(cs) for cs in s.children)
+    else
+        # Repeat recurring welfare forever
+        oneoffwelfare + recurringwelfare / (1 - discountrate)
+    end
+
+end
