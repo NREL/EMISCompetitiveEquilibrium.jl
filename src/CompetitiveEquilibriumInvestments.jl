@@ -58,8 +58,8 @@ export
     ThermalGeneratorOperations, VariableGeneratorOperations,
     StorageOperations, TransmissionOperations,
 
-    Markets,
-    CapacityMarket, EnergyMarket, RaiseReserveMarket, LowerReserveMarket,
+    Markets, CapacityMarket, RECMarket,
+    EnergyMarket, RaiseReserveMarket, LowerReserveMarket,
 
     Scenario, InvestmentProblem, solve!, report
 

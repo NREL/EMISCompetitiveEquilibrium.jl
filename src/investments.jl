@@ -257,17 +257,41 @@ function setup!(
                     invs.buildcost[r,g] * invs.buildsstarted[r,g] +
                     invs.retirementcost[r,g] * invs.newretirements[r,g])
 
-    # Constraints
+    invs.minnewoptions = @constraint(m, [r in 1:R, g in 1:G],
+        invs.newoptions[r,g] >= 0)
 
-    for field in [:newoptions, :newholding, :newbuilds_vesting, :newbuilds_holding,
-                  :newdispatching, :newretirements_dispatching, :newretirements_building,
-                  :vesting, :holding, :building, :dispatching, :retired]
+    invs.minnewholding = @constraint(m, [r in 1:R, g in 1:G],
+        invs.newholding[r,g] >= 0)
 
-        setfield!(invs, Symbol(:min, field),
-            @constraint(m, [r in 1:R, g in 1:G],
-                        getfield(invs, field)[r,g] >= 0))
+    invs.minnewbuilds_vesting = @constraint(m, [r in 1:R, g in 1:G],
+        invs.newbuilds_vesting[r,g] >= 0)
 
-    end
+    invs.minnewbuilds_holding = @constraint(m, [r in 1:R, g in 1:G],
+        invs.newbuilds_holding[r,g] >= 0)
+
+    invs.minnewdispatching = @constraint(m, [r in 1:R, g in 1:G],
+        invs.newdispatching[r,g] >= 0)
+
+    invs.minnewretirements_dispatching = @constraint(m, [r in 1:R, g in 1:G],
+        invs.newretirements_dispatching[r,g] >= 0)
+
+    invs.minnewretirements_building = @constraint(m, [r in 1:R, g in 1:G],
+        invs.newretirements_building[r,g] >= 0)
+
+    invs.minvesting = @constraint(m, [r in 1:R, g in 1:G],
+        invs.vesting[r,g] >= 0)
+
+    invs.minholding = @constraint(m, [r in 1:R, g in 1:G],
+        invs.holding[r,g] >= 0)
+
+    invs.minbuilding = @constraint(m, [r in 1:R, g in 1:G],
+        invs.building[r,g] >= 0)
+
+    invs.mindispatching = @constraint(m, [r in 1:R, g in 1:G],
+        invs.dispatching[r,g] >= 0)
+
+    invs.minretired = @constraint(m, [r in 1:R, g in 1:G],
+        invs.retired[r,g] >= 0)
 
     invs.maxnewoptions =
         @constraint(m, [r in 1:R, g in 1:G],

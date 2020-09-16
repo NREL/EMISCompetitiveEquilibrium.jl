@@ -115,6 +115,7 @@ function setup!(s::Scenario)
 
     # Markets
     setup!(markets.capacity,     m, ops, s)
+    setup!(markets.rec,          m, ops, weights, s)
     setup!(markets.energy,       m, ops, weights, s)
     setup!(markets.raisereserve, m, ops, weights, s)
     setup!(markets.lowerreserve, m, ops, weights, s)

@@ -3,7 +3,9 @@ using JuMP
 using Gurobi
 using Test
 
-false && @testset "Toy Problem" begin
+const CEI = CompetitiveEquilibriumInvestments
+
+true && @testset "Toy Problem" begin
 
     R = 3
     G1 = 1
@@ -81,12 +83,13 @@ false && @testset "Toy Problem" begin
     load = base .* r_scale .* p_scale
     reserve = 0.1 .* load
 
-    capacity = CapacityMarket(1000., 40., -100.)
+    capacity = CapacityMarket(1000., 500., 10., 15., 20.)
+    rec = RECMarket(0., 50.)
     energy = EnergyMarket(load, fill(1e5, R))
     raisereserve = RaiseReserveMarket(reserve, fill(4e4, R))
     lowerreserve = LowerReserveMarket(reserve, fill(4e4, R))
 
-    markets = Markets(capacity, energy, raisereserve, lowerreserve)
+    markets = Markets(capacity, rec, energy, raisereserve, lowerreserve)
 
     periodweights = fill(13., 4)
 
@@ -96,13 +99,12 @@ false && @testset "Toy Problem" begin
     p = InvestmentProblem(regionnames, periodnames, techs, initconds,
                           discountrate, "RootScenario",
                           invs, ops, markets, periodweights, Gurobi.Optimizer)
-
     solve!(p)
     report(joinpath(dirname(@__FILE__), "toymodel"), p)
 
 end
 
-@testset "RTS" begin
+false && @testset "RTS" begin
     p = InvestmentProblem(
         "/home/gord/work/EMIS/EMISPreprocessing/output",
         optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.001))

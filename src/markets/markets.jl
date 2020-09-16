@@ -1,10 +1,12 @@
 include("capacity.jl")
+include("rec.jl")
 include("energy.jl")
 include("raisereserve.jl")
 include("lowerreserve.jl")
 
 struct Markets{R,T,P}
    capacity::CapacityMarket
+   rec::RECMarket
    energy::EnergyMarket{R,T,P}
    raisereserve::RaiseReserveMarket{R,T,P}
    lowerreserve::LowerReserveMarket{R,T,P}
@@ -15,6 +17,8 @@ function loadmarkets(
     resourcepath::String
 )
     capacity = CapacityMarket(joinpath(resourcepath, "capacity"))
+
+    rec = RECMarket(joinpath(resourcepath, "rec"))
 
     energy = loadmarket(
         EnergyMarket, regions, periods, n_timesteps,
@@ -28,7 +32,7 @@ function loadmarkets(
         LowerReserveMarket, regions, periods, n_timesteps,
         joinpath(resourcepath, "lowerreserve"))
 
-    return Markets(capacity, energy, raisereserve, lowerreserve)
+    return Markets(capacity, rec, energy, raisereserve, lowerreserve)
 
 end
 
@@ -66,6 +70,5 @@ function loadmarket(
 end
 
 welfare(x::Markets) =
-    # welfare(x.capacity) + welfare(x.energy) +
-    welfare(x.energy) +
+    welfare(x.capacity) + welfare(x.rec) + welfare(x.energy) +
     welfare(x.raisereserve) + welfare(x.lowerreserve)
