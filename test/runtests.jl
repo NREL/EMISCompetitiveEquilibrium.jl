@@ -23,7 +23,7 @@ true && @testset "Toy Problem" begin
     thermaltechs = ThermalGenerators(
         ["Tech A"], ["Firm 1"], [5.], [15.], [6], [6], [5.], [5.], [0.95])
 
-    variabletechs = VariableGenerators(String[], String[], Float64[])
+    variabletechs = VariableGenerators(String[], String[], Float64[], Float64[])
 
     storagetechs = StorageDevices(
         String[], String[], Float64[], Float64[], Float64[],
@@ -104,7 +104,7 @@ true && @testset "Toy Problem" begin
 
 end
 
-false && @testset "RTS" begin
+true && @testset "RTS" begin
     p = InvestmentProblem(
         "/home/gord/work/EMIS/EMISPreprocessing/output",
         optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.001))

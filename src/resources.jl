@@ -30,6 +30,8 @@ struct VariableGenerators{G2} <: AbstractTechnology{G2}
 
     maxgen::Vector{Float64} # (MW/unit, g)
 
+    capacitycredit::Vector{Float64} # (fraction, g)
+
     function VariableGenerators{}(args...)
         G = length(first(args))
         @assert all(a -> length(a) == G, args)

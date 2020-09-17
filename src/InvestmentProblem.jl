@@ -95,7 +95,8 @@ function InvestmentProblem(
 
     variabledata = DataFrame!(CSV.File(joinpath(technicalpath, "variable.csv")))
     variabletechs = VariableGenerators(
-        variabledata.name, variabledata.owner, variabledata.maxgen)
+        variabledata.name, variabledata.owner, variabledata.maxgen,
+        variabledata.capacitycredit)
     n_variables = length(variabletechs.name)
     variablelookup = Dict(zip(variabledata.name, 1:n_variables))
 

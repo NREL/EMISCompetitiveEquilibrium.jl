@@ -146,7 +146,10 @@ function setup!(
                     sum(ops.variablecosts[r,g,p] * periodweights[p] for p in 1:P))
 
     ops.ucap =
-        @expression(m, [r in 1:R], 0) # TODO
+        @expression(m, [r in 1:R],
+                    G > 0 ?
+                        sum(units.capacitycredit[g] * invs.dispatching[r,g]
+                            for g in 1:G) : 0)
 
     ops.totalenergy =
         @expression(m, [r in 1:R, t in 1:T, p in 1:P],
