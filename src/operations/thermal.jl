@@ -3,9 +3,9 @@ mutable struct ThermalGeneratorOperations{R,G,T,P}
     # Parameters
 
     fixedcost::Matrix{Float64}    # $/unit/investment period, g
-    variablecost::Matrix{Float64} # $/MW/hour, g
-    startupcost::Matrix{Float64}  # $/startup/unit, g
-    shutdowncost::Matrix{Float64} # $/shutdown/unit, g
+    variablecost::Matrix{Float64} # $/MW/hour, r x g
+    startupcost::Matrix{Float64}  # $/startup/unit, r x g
+    shutdowncost::Matrix{Float64} # $/shutdown/unit, r x g
 
     # Variables
 
@@ -38,7 +38,7 @@ mutable struct ThermalGeneratorOperations{R,G,T,P}
     maxunitshutdowns::Array{LessThanConstraintRef,4}  # (r x g x t x p)
 
     unitcommitmentcontinuity::Array{EqualToConstraintRef,4}  # (r x g x t x p)
-    minunituptime::Array{LessThanConstraintRef,4} # (r x g x t-? x p)
+    minunituptime::Array{LessThanConstraintRef,4} # (r x g x t x p)
     minunitdowntime::Array{LessThanConstraintRef,4}
 
     mingeneration::Array{GreaterThanConstraintRef,4} # (r x g x t x p)
@@ -139,13 +139,13 @@ function setup!(
 
     ops.fixedcosts =
         @expression(m, [r in 1:R, g in 1:G],
-                    ops.fixedcost[g] * invs.dispatching[r,g])
+                    ops.fixedcost[r,g] * invs.dispatching[r,g])
 
     ops.variablecosts =
         @expression(m, [r in 1:R, g in 1:G, p in 1:P],
-                    sum(ops.variablecost[g] * ops.energydispatch[r,g,t,p] +
-                        ops.startupcost[g] * ops.started[r,g,t,p] +
-                        ops.shutdowncost[g] * ops.shutdown[r,g,t,p]
+                    sum(ops.variablecost[r,g] * ops.energydispatch[r,g,t,p] +
+                        ops.startupcost[r,g] * ops.started[r,g,t,p] +
+                        ops.shutdowncost[r,g] * ops.shutdown[r,g,t,p]
                         for t in 1:T))
 
     ops.operatingcosts =

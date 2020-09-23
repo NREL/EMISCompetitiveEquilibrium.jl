@@ -73,9 +73,6 @@ function Scenario(
 
 end
 
-function loadscenario(parent::Scenario, folder::String)
-end
-
 function loadscenario(
     regions::Dict{String,Int}, techs::Technologies,
     periods::Dict{String,Int}, n_timesteps::Int,
@@ -162,5 +159,23 @@ function welfare(s::Scenario)
         # Repeat recurring welfare forever
         oneoffwelfare + recurringwelfare / (1 - discountrate)
     end
+
+end
+
+function discount(s::Scenario)
+
+    haschildren = length(s.children) > 0
+    discountrate = s.investmentproblem.discountrate
+
+    discountings = 0
+    while s.parent != nothing
+        discountings += 1
+        s = s.parent
+    end
+
+    oneoffrate = discountrate ^ discountings
+    recurringrate = haschildren ? oneoffrate : oneoffrate / (1 - discountrate)
+
+    return oneoffrate, recurringrate
 
 end

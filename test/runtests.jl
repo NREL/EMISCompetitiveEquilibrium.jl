@@ -5,6 +5,26 @@ using Test
 
 const CEI = CompetitiveEquilibriumInvestments
 
+function fix_discrete_reoptimize!(m::Model, solver)
+
+    # Go through all variables and fix binaries / integers
+    # such that the problem is convex and has duals
+    vars = all_variables(m)
+    vals = value.(vars)
+    for (var, val) in zip(vars, vals)
+        if is_binary(var) || is_integer(var)
+            is_binary(var) ? unset_binary(var) : unset_integer(var)
+            fix(var, val, force=true)
+        end
+    end
+
+    set_optimizer(m, solver)
+    @time optimize!(m)
+
+    return m
+
+end
+
 true && @testset "Toy Problem" begin
 
     R = 3
@@ -100,6 +120,7 @@ true && @testset "Toy Problem" begin
                           discountrate, "RootScenario",
                           invs, ops, markets, periodweights, Gurobi.Optimizer)
     solve!(p)
+    fix_discrete_reoptimize!(p.model, Gurobi.Optimizer)
     report(joinpath(dirname(@__FILE__), "toymodel"), p)
 
 end
@@ -107,7 +128,9 @@ end
 true && @testset "RTS" begin
     p = InvestmentProblem(
         "/home/gord/work/EMIS/EMISPreprocessing/output",
-        optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.001))
+        optimizer_with_attributes(Gurobi.Optimizer,
+            "MIPGap" => 0.005, "MIPGapAbs" => 25e6))
     solve!(p, debug=true)
+    fix_discrete_reoptimize!(p.model, Gurobi.Optimizer)
     report(joinpath(dirname(@__FILE__), "rts"), p)
 end

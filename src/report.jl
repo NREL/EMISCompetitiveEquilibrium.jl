@@ -11,37 +11,24 @@ function report(
 
     isdir(reportdir) || mkpath(reportdir)
 
-    demands = DataFrame(scenario=String[], market=String[],
-                        region=String[],
-                        period=String[], timestep=Int[], value=Float64[])
+    annualmarkets = DataFrame(
+         scenario=String[], market=String[], demand=Float64[], price=Float64[])
 
-    dispatches = DataFrame(scenario=String[], market=String[],
-                           region=String[], gen=String[], 
-                           period=String[], timestep=Int[], value=Float64[])
+    hourlymarkets = DataFrame(
+        scenario=String[], market=String[], region=String[],
+        period=String[], timestep=Int[], demand=Float64[], price=Float64[])
+
+    dispatches = DataFrame(
+        scenario=String[], market=String[], region=String[], gen=String[],
+        period=String[], timestep=Int[], value=Float64[])
 
     for (scenario, isleaf) in scenarios(invprob)
 
         println("\n", scenario.name)
-        capmkt = scenario.markets.capacity
+        oneoffdiscount, recurringdiscount = discount(scenario)
+        periodweights = scenario.periodweights
 
-        println("Capacity Market Parameters:")
-        println(capmkt.maxprice_capacity)
-        println(capmkt.midprice_capacity)
-        println(capmkt.zeroprice_capacity)
-
-        println("Capacity Market Contributions:")
-        println(value(capmkt.totalcontribution))
-        println(value(capmkt.seg0contribution))
-        println(value(capmkt.seg1contribution))
-        println(value(capmkt.seg2contribution))
-
-        println("Capacity Market Prices:")
-        println(value(capmkt.seg1price))
-        println(value(capmkt.seg2price))
-
-        println("Capacity Market Welfare:")
-        println(value(capmkt.capacitywelfare))
-
+        # Dispatch
         for market in [:energydispatch, :raisereserve, :lowerreserve],
             (r, regionname) in enumerate(invprob.regionnames),
             gentype in [:thermal, :variable, :storage]
@@ -79,17 +66,45 @@ function report(
 
         end
 
+        # Capacity Market
+        capmkt = scenario.markets.capacity
+        capmkt_demand = value(capmkt.totalcontribution)
+        capmkt_price =
+            if capmkt_demand < capmkt.maxprice_capacity
+                capmkt.maxprice
+            elseif capmkt_demand < capmkt.midprice_capacity
+                value(capmkt.seg1price)
+            elseif capmkt_demand < capmkt.zeroprice_capacity
+                value(capmkt.seg2price)
+            else
+                0
+            end
+        push!(annualmarkets, (
+                scenario=scenario.name, market="capacity",
+                demand=capmkt_demand, price=capmkt_price))
+
+        # REC market
+        recmkt = scenario.markets.rec
+        recmkt_demand = recmkt.demand
+        recmkt_price = dual(recmkt.marketclearing)
+        push!(annualmarkets, (
+            scenario=scenario.name, market="rec",
+            demand=recmkt_demand, price=recmkt_price/recurringdiscount))
+
+        # Hourly, regional market demand + prices
         for market in [:energy, :raisereserve, :lowerreserve],
             (r, regionname) in enumerate(invprob.regionnames)
 
             demand = getfield(scenario.markets, market).demand
+            price = dual.(getfield(scenario.markets, market).marketclearing)
 
             for (p, periodname) in enumerate(invprob.periodnames), t in 1:T
 
-                push!(demands, (scenario=scenario.name, market=string(market),
-                                region=regionname,
-                                period=periodname, timestep=t,
-                                value=demand[r,t,p]))
+                push!(hourlymarkets, (
+                    scenario=scenario.name, market=string(market),
+                    region=regionname, period=periodname, timestep=t,
+                    demand=demand[r,t,p],
+                    price=price[r,t,p]/periodweights[p]/recurringdiscount))
 
             end
 
@@ -119,7 +134,8 @@ function report(
 
     dispatches.value[-1e-4 .< dispatches.value .< 0] .= 0.
     CSV.write(joinpath(reportdir, "dispatch.csv"), dispatches)
-    CSV.write(joinpath(reportdir, "demand.csv"), demands)
+    CSV.write(joinpath(reportdir, "markets_hourly.csv"), hourlymarkets)
+    CSV.write(joinpath(reportdir, "markets_annual.csv"), annualmarkets)
 
 end
 
