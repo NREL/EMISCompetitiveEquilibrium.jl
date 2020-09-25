@@ -129,7 +129,7 @@ true && @testset "RTS" begin
     p = InvestmentProblem(
         "/home/gord/work/EMIS/EMISPreprocessing/output",
         optimizer_with_attributes(Gurobi.Optimizer,
-            "MIPGap" => 0.005, "MIPGapAbs" => 25e6))
+            "MIPGap" => 0.005, "MIPGapAbs" => 100e6))
     solve!(p, debug=true)
     fix_discrete_reoptimize!(p.model, Gurobi.Optimizer)
     report(joinpath(dirname(@__FILE__), "rts"), p)

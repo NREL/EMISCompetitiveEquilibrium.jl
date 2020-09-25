@@ -90,12 +90,7 @@
 <body>
 <ul><li id="root">/<ul>
 
-    <li class="file">
-        regions.csv
-        <ul>
-            <li class="id">name</li>
-        </ul>
-    </li>
+
     <li class="file">
         periods.csv
         <ul>
@@ -116,6 +111,12 @@
         technical/
         <ul>
             <li class="file">
+                regions.csv
+                <ul>
+                    <li class="id">name</li>
+                </ul>
+            </li>
+            <li class="file">
                 thermal.csv
                 <ul>
                     <li class="id">name</li>
@@ -135,7 +136,7 @@
                     <li class="id">name</li>
                     <li>owner</li>
                     <li>maxgen</li>
-                    <li>capacitycredit (starting estimate)</li>
+                    <li>capacitycredit</li>
                 </ul>
             </li>
             <li class="file">
@@ -153,11 +154,11 @@
                 </ul>
             </li>
             <li class="file">
-                interfaces.csv
+                interface.csv
                 <ul>
                     <li class="id">name</li>
-                    <li>from</li>
-                    <li>to</li>
+                    <li>from <span class="note">- region name</span></li>
+                    <li>to <span class="note">- region name</span></li>
                 </ul>
             </li>
         </ul>
@@ -183,7 +184,11 @@
                                     <li class="file">
                                         rules.csv
                                         <ul>
-                                            <li>[demand curve parameters]</li>
+                                            <li>maxprice</li>
+                                            <li>midprice</li>
+                                            <li>maxprice_capacity</li>
+                                            <li>midprice_capacity</li>
+                                            <li>zeroprice_capacity</li>
                                         </ul>
                                     </li>
                                 </ul>
@@ -241,6 +246,17 @@
                                             <li class="id">period</li>
                                             <li class="id">timestep</li>
                                             <li>{regions...}</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li class="folder">rec/
+                                <ul>
+                                    <li class="file">
+                                        rules.csv
+                                        <ul>
+                                            <li>demand</li>
+                                            <li>pricecap</li>
                                         </ul>
                                     </li>
                                 </ul>
