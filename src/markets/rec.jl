@@ -57,8 +57,8 @@ function setup!(
     market.minshortfall = @constraint(m, market.shortfall >= 0)
 
     market.marketclearing = @constraint(m,
-        sum(periodweights[p] * sum(ops.variable.totalenergy[:,:,p])
-            for p in 1:P) >= market.demand)
+        sum(periodweights[p] * sum(ops.variable.recenergy[:,:,p])
+            for p in 1:P) + market.shortfall >= market.demand)
 
     return
 

@@ -156,7 +156,7 @@ function setup!(
     ops.ucap =
         @expression(m, [r in 1:R], G > 0 ? sum(
             invs.dispatching[r,g] * units.maxgen[g] * units.capacitycredit[g]
-        for g in 1:G) : 0)
+            for g in 1:G) : 0)
 
     ops.totalenergy =
         @expression(m, [r in 1:R, t in 1:T, p in 1:P],

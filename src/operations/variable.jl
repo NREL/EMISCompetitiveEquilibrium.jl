@@ -2,8 +2,9 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
 
     # Parameters
 
-    fixedcost::Matrix{Float64}      # $/unit/investment period, g
-    variablecost::Matrix{Float64}   # $/MW/hour, g
+    fixedcost::Matrix{Float64}       # $/unit/investment period, r x g
+    variablecost::Matrix{Float64}    # $/MW/hour, r x g
+    recredit::Matrix{Float64}        # r x g
     capacityfactor::Array{Float64,4} # MW, r x g x t x p
 
     # Variables
@@ -20,6 +21,7 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
 
     ucap::Vector{ExpressionRef} # (MW, r)
     totalenergy::Array{ExpressionRef,3} # MW, r x t x p
+    recenergy::Array{ExpressionRef,3} # MW, r x t x p
     totalraisereserve::Array{ExpressionRef,3}
     totallowerreserve::Array{ExpressionRef,3}
 
@@ -33,6 +35,7 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
     function VariableGeneratorOperations{}(
         fixedcost::Matrix{Float64},
         variablecost::Matrix{Float64},
+        recredit::Matrix{Float64},
         capacityfactor::Array{Float64,4}
     )
 
@@ -40,8 +43,9 @@ mutable struct VariableGeneratorOperations{R,G,T,P}
 
         @assert size(fixedcost) == (R, G)
         @assert size(variablecost) == (R, G)
+        @assert size(recredit) == (R, G)
 
-        new{R,G,T,P}(fixedcost, variablecost, capacityfactor)
+        new{R,G,T,P}(fixedcost, variablecost, recredit, capacityfactor)
 
     end
 
@@ -59,6 +63,7 @@ function VariableGeneratorOperations{T}(
 
     fixedcost = zeros(Float64, R, G)
     variablecost = zeros(Float64, R, G)
+    recredit = zeros(Float64, R, G)
     capacityfactor = zeros(Float64, R, G, T, P)
 
     variabledata = DataFrame!(CSV.File(joinpath(variablepath, "parameters.csv"),
@@ -69,6 +74,7 @@ function VariableGeneratorOperations{T}(
         region_idx = regionlookup[row.region]
         fixedcost[region_idx, gen_idx] = row.fixedcost
         variablecost[region_idx, gen_idx] = row.variablecost
+        recredit[region_idx, gen_idx] = row.rec
     end
 
     availabilitypath = joinpath(variablepath, "availability")
@@ -99,7 +105,7 @@ function VariableGeneratorOperations{T}(
 
     end
 
-    return VariableGeneratorOperations(fixedcost, variablecost, capacityfactor)
+    return VariableGeneratorOperations(fixedcost, variablecost, recredit, capacityfactor)
 
 end
 
@@ -146,14 +152,18 @@ function setup!(
                     sum(ops.variablecosts[r,g,p] * periodweights[p] for p in 1:P))
 
     ops.ucap =
-        @expression(m, [r in 1:R],
-                    G > 0 ?
-                        sum(units.capacitycredit[g] * invs.dispatching[r,g]
-                            for g in 1:G) : 0)
+        @expression(m, [r in 1:R], G > 0 ? sum(
+            invs.dispatching[r,g] * units.maxgen[g] * units.capacitycredit[g]
+            for g in 1:G) : 0)
 
     ops.totalenergy =
         @expression(m, [r in 1:R, t in 1:T, p in 1:P],
                     G > 0 ? sum(ops.energydispatch[r,g,t,p] for g in 1:G) : 0)
+
+    ops.recenergy =
+        @expression(m, [r in 1:R, t in 1:T, p in 1:P],
+                    G > 0 ? sum(ops.recredit[r,g] * ops.energydispatch[r,g,t,p]
+                            for g in 1:G) : 0)
 
     ops.totalraisereserve =
         @expression(m, [r in 1:R, t in 1:T, p in 1:P],

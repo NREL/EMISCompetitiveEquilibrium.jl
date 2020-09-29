@@ -44,7 +44,8 @@ operations contexts.
 The investment context tracks the state of resource investments, their
 ability to contribute to the system, and associated capital costs and
 constraints across five units states: vesting, holding, building, dispatching,
-and retired.
+and retired. Option and capital costs are incurred when the corresponding
+investment decision is made and so are considered sunk in any child scenarios.
 
 <img src="EMIS-CE_unitstates.png" />
 
@@ -60,9 +61,9 @@ unit operational would exceed the expected system benefits, or a mandatory
 retirement is prescribed.
 
 Initially-available options are automatically assigned the holding state and
-may be moved to the building state in the root scenario node. Intially-available built
-units are assigned the dispatching state and may be moved to the retired
-state in the root scenario node.
+may be moved to the building state in the root scenario node.
+Initially-available built units are assigned the dispatching state and may be
+moved to the retired state in the root scenario node.
 
 ### Operations Context
 

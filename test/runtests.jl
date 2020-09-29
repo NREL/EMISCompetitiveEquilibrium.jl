@@ -84,7 +84,7 @@ true && @testset "Toy Problem" begin
     ops_variable =
         VariableGeneratorOperations(
             zeros(Float64, R, G2), zeros(Float64, R, G2),
-            zeros(Float64, R, G2, T, P))
+            zeros(Float64, R, G2), zeros(Float64, R, G2, T, P))
 
     ops_storage =
         StorageOperations{T,P}(zeros(Float64, R, G3), zeros(Float64, R, G3))
@@ -129,7 +129,7 @@ true && @testset "RTS" begin
     p = InvestmentProblem(
         "/home/gord/work/EMIS/EMISPreprocessing/output",
         optimizer_with_attributes(Gurobi.Optimizer,
-            "MIPGap" => 0.005, "MIPGapAbs" => 100e6))
+            "MIPGap" => 0.005, "MIPGapAbs" => 220e6))
     solve!(p, debug=true)
     fix_discrete_reoptimize!(p.model, Gurobi.Optimizer)
     report(joinpath(dirname(@__FILE__), "rts"), p)

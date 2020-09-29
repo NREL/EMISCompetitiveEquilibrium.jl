@@ -20,7 +20,7 @@ const scenarios_resource_param_types = Dict(
     :startupcost=>Float64, :shutdowncost=>Float64,
     :optioncost=>Float64, :buildcost=>Float64, :retirementcost=>Float64,
     :buildleadtime=>Int, :optionleadtime=>Int,
-    :newoptionslimit=>Int, :newbuildslimit=>Int
+    :newoptionslimit=>Int, :newbuildslimit=>Int, :rec=>Float64
 )
 
 const scenarios_transmission_param_types = Dict(
