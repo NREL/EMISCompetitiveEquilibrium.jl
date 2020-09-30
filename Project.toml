@@ -1,4 +1,4 @@
-name = "CompetitiveEquilibriumInvestments"
+name = "EMISCompetitiveEquilibrium"
 uuid = "6efe0701-2f91-426f-b5bc-775d0f65f0c7"
 authors = ["Gord Stephen <gord.stephen@nrel.gov>"]
 version = "0.1.0"
